@@ -158,7 +158,7 @@ function bind(){
  document.querySelectorAll('.open-library').forEach(b=>b.onclick=()=>{vendorLibraryOpen=true;render()});
  const closeVendorLibrary=()=>{vendorLibraryOpen=false;document.body.style.overflow='';render()};
  const cv=document.querySelector('#closeVendorLibrary');if(cv){cv.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()})}
- const vendorModal=document.querySelector('#vendorLibraryModal');if(vendorModal){document.body.style.overflow='hidden';vendorModal.addEventListener('click',e=>{if(e.target===vendorModal)closeVendorLibrary()})}
+ const vendorModal=document.querySelector('#vendorLibraryModal');if(vendorModal&&vendorLibraryOpen){document.body.style.overflow='hidden';vendorModal.addEventListener('click',e=>{if(e.target===vendorModal)closeVendorLibrary()})}else{document.body.style.overflow=''}
  const escapeVendorLibrary=e=>{if(e.key==='Escape'&&vendorLibraryOpen){document.removeEventListener('keydown',escapeVendorLibrary);closeVendorLibrary()}};document.addEventListener('keydown',escapeVendorLibrary,{once:false});
  document.querySelectorAll('.library-row .small-btn').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()}));
  const vls=document.querySelector('#vendorLibrarySearch');if(vls)vls.oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.library-row').forEach(r=>r.style.display=r.dataset.libraryText.includes(q)?'grid':'none')};
