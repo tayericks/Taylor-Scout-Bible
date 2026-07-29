@@ -21,3 +21,8 @@ npm run dev
 - Vendor email subject format: Show_Episode_Location_Vendor
 - Event times rendered as weekday, MM/DD/YYYY, and AM/PM on separate labeled lines
 - No email signature block
+
+
+## Update 9.0.0
+- Unified Taylor Scout logo and dashboard navigation.
+- Interface and print refinements requested July 29, 2026.
