@@ -1,28 +1,11 @@
-# Taylor Scout Bible v7
+# Taylor Scout Bible v11 — Shared Connected
 
-Front-end test prototype with:
-- Episode-first Bible navigation
-- Four logistics cards (Set, Basecamp, Crew Parking, Catering)
-- Full Bible print/PDF workflow
-- Detailed vendor email generation with greeting, location, PO and entered order details
-- Local browser save for testing
+This build uses the shared `.taylorscout.com` Supabase session and the show selected in the Hub.
 
-Run:
-```bash
-npm install
-npm run dev
-```
+It reads shared locations from `production_locations`, reads the shared Budget document, and saves the Bible document to `tool_documents` with `tool_key = bible`. It preserves a local-browser backup and subscribes to realtime updates.
 
-
-## v7 additions
-- Undo for deleted rows and structural changes
-- Working episode accordion navigation
-- Full Bible print expansion with vendor/order list and no financial amounts
-- Vendor email subject format: Show_Episode_Location_Vendor
-- Event times rendered as weekday, MM/DD/YYYY, and AM/PM on separate labeled lines
-- No email signature block
-
-
-## Update 9.0.0
-- Unified Taylor Scout logo and dashboard navigation.
-- Interface and print refinements requested July 29, 2026.
+Required Vercel environment variables:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_BUDGET_URL=https://budget.taylorscout.com`
+- `VITE_WAYPOINT_URL=https://waypoint.taylorscout.com`
