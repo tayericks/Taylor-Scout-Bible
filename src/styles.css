@@ -67,3 +67,7 @@ body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,
 
 /* Bible v15: reliable page scrolling and polished logo tile */
 html,body{min-height:100%;overflow-x:hidden}.app-shell{min-height:calc(100vh - 68px);height:auto!important}.main{min-height:calc(100vh - 68px);overflow:visible!important}.brand-home{display:flex!important;align-items:center!important;gap:10px!important}.brand-home .ts-logo svg{width:36px!important;height:42px!important;padding:5px;border-radius:11px;background:linear-gradient(145deg,#64d8cf,#20a7a4);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}.brand-home .ts-logo .pin-outline{stroke:#fff!important}.brand-home .ts-logo .mountain{fill:#fff!important}.brand-home .ts-logo .road{fill:#d9fff9!important}.brand-home .ts-logo .star{fill:#fff!important}
+
+
+/* Bible v16: new Bible creation modal */
+.new-bible-modal{width:min(720px,96vw)!important}.new-bible-modal select,.new-bible-modal input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink);font:inherit}.new-bible-preview{grid-column:1/-1;border:1px solid #cfe1e3;background:#f2fbfa;border-radius:11px;padding:13px 14px;display:grid;gap:4px}.new-bible-preview strong{font-size:16px}.new-bible-preview span,.new-bible-preview small{color:var(--muted);font-size:12px}

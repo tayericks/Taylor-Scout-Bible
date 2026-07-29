@@ -55,6 +55,7 @@ let undoStack=[];
 let cloudPayload=null;
 let cloudState=configured?'Connecting…':'Saved locally';
 let sharedLocation=null;
+let sharedLocations=[];
 let sharedBudget=null;
 let realtimeStop=()=>{};
 
@@ -150,7 +151,7 @@ function bind(){
  const waypoint=document.querySelector('#openWaypointTop');if(waypoint)waypoint.onclick=()=>openTool(import.meta.env.VITE_WAYPOINT_URL||'https://waypoint.taylorscout.com');
  const home=document.querySelector('#hubHome');if(home)home.onclick=()=>location.href='https://www.taylorscout.com';
  const allShows=document.querySelector('#allShows');if(allShows)allShows.onclick=()=>location.href='https://www.taylorscout.com';
- const nb=document.querySelector('#newBible');if(nb)nb.onclick=()=>alert('New Bible flow: select episode, scene/set, and Budget location.');
+ const nb=document.querySelector('#newBible');if(nb)nb.onclick=openNewBibleFlow;
  document.querySelectorAll('.episode-row').forEach(b=>b.onclick=()=>{state.openEpisode=state.openEpisode===b.dataset.episode?'':b.dataset.episode;render()});
  const editLoc=document.querySelector('#editLocation');if(editLoc)editLoc.onclick=openLocationEditor;
  const editLog=document.querySelector('#editLogistics');if(editLog)editLog.onclick=()=>alert('Edit Set, Basecamp, Crew Parking, and Catering logistics.');
@@ -198,7 +199,7 @@ async function saveBible(sectionOnly=false){const data=collectBiblePayload();loc
 function applyPayload(data){if(!data)return;cloudPayload=data;Object.entries(data.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st});const els=[...document.querySelectorAll('input,select,textarea')];(data.values||[]).forEach(x=>{const el=els[x.i];if(!el)return;if(x.type==='checkbox'||x.type==='radio')el.checked=x.checked;else el.value=x.value});document.querySelectorAll('.vendor-card.expanded').forEach(recalculateCard)}
 function restoreValues(){try{const data=cloudPayload||JSON.parse(localStorage.getItem('taylorScoutBibleV7')||'null');applyPayload(data)}catch(e){console.warn(e)}}
 function updateCloudStatus(){const el=document.querySelector('#cloudStatus');if(el){el.textContent=cloudState;el.classList.toggle('error',cloudState.startsWith('Sync error')||cloudState==='Not signed in')}}
-async function refreshSharedData(){if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId)]);sharedBudget=budget?.payload||null;sharedLocation=(locationId?locations.find(x=>x.id===locationId):null)||locations.find(x=>x.is_final)||locations[0]||null;cloudPayload=doc?.payload||cloudPayload;if(cloudPayload)applyPayload(cloudPayload);cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
+async function refreshSharedData(){if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||sharedLocations.find(x=>x.is_final)||sharedLocations[0]||null;cloudPayload=doc?.payload||cloudPayload;if(cloudPayload)applyPayload(cloudPayload);cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
 async function initShared(){await refreshSharedData();realtimeStop();realtimeStop=subscribeBible(showId,()=>refreshSharedData())}
 
 function esc(v=''){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
@@ -209,6 +210,23 @@ function openLocationEditor(){
  wrap.querySelector('#locationEditForm').onsubmit=async e=>{e.preventDefault();const btn=wrap.querySelector('.save-location');btn.disabled=true;btn.textContent='Saving…';const fd=new FormData(e.currentTarget);const changes=Object.fromEntries([...fd.entries()].map(([k,v])=>[k,String(v).trim()]));try{sharedLocation=await updateLocation(sharedLocation.id,changes);cloudState='Connected · saved';close();render();showToast('Shared location updated');}catch(err){console.error('Location update failed',err);btn.disabled=false;btn.textContent='Save shared location';showToast(err.message||'Could not update location',true)}};
  setTimeout(()=>wrap.querySelector('input')?.focus(),0)
 }
+
+function openNewBibleFlow(){
+ if(!sharedLocations.length){showToast('No shared locations are available yet. Add a location in Location List or Calendar first.',true);return}
+ const episodes=[...new Set(sharedLocations.map(x=>x.episode_name||x.episode_id||'Unassigned').filter(Boolean))];
+ const wrap=document.createElement('div');wrap.className='modal-backdrop new-bible-backdrop';
+ const locationOptions=(episode='')=>sharedLocations.filter(x=>!episode||(x.episode_name||x.episode_id||'Unassigned')===episode).map(x=>`<option value="${esc(x.id)}">${esc(x.location_name||'Unnamed location')} — ${esc(x.set_name||'Set TBD')}</option>`).join('');
+ wrap.innerHTML=`<section class="location-modal new-bible-modal" role="dialog" aria-modal="true" aria-labelledby="newBibleTitle"><div class="modal-head"><div><small>NEW LOCATION BIBLE</small><h2 id="newBibleTitle">Start a new Bible</h2></div><button class="modal-close" type="button" aria-label="Close">×</button></div><form id="newBibleForm"><div class="modal-grid"><label><span>Episode</span><select name="episode">${episodes.map((e,i)=>`<option ${i===0?'selected':''}>${esc(e)}</option>`).join('')}</select></label><label><span>Shared location</span><select name="locationId">${locationOptions(episodes[0])}</select></label><label class="wide"><span>Scene / set name</span><input name="setName" placeholder="Uses the shared set name unless changed"></label></div><div class="new-bible-preview"></div><p class="modal-note">This starts the Bible from a shared production location so its address, contact, episode, and set stay connected across Taylor Scout.</p><div class="modal-actions"><button type="button" class="ghost cancel-new-bible">Cancel</button><button type="submit" class="primary create-new-bible">Create Bible</button></div></form></section>`;
+ document.body.append(wrap);document.body.style.overflow='hidden';
+ const close=()=>{document.body.style.overflow='';wrap.remove()};
+ const ep=wrap.querySelector('[name=episode]'),loc=wrap.querySelector('[name=locationId]'),setInput=wrap.querySelector('[name=setName]'),preview=wrap.querySelector('.new-bible-preview');
+ const updatePreview=()=>{const item=sharedLocations.find(x=>x.id===loc.value);if(!item)return;setInput.placeholder=item.set_name||'Set TBD';preview.innerHTML=`<strong>${esc(item.location_name||'Unnamed location')}</strong><span>${esc([item.address,item.city,item.state,item.postal_code].filter(Boolean).join(', '))}</span><small>${esc(item.contact_name||'No primary contact')}</small>`};
+ ep.onchange=()=>{loc.innerHTML=locationOptions(ep.value);updatePreview()};loc.onchange=updatePreview;updatePreview();
+ wrap.querySelector('.modal-close').onclick=close;wrap.querySelector('.cancel-new-bible').onclick=close;wrap.onclick=e=>{if(e.target===wrap)close()};
+ const key=e=>{if(e.key==='Escape'){document.removeEventListener('keydown',key);close()}};document.addEventListener('keydown',key);
+ wrap.querySelector('#newBibleForm').onsubmit=async e=>{e.preventDefault();const item=sharedLocations.find(x=>x.id===loc.value);if(!item)return showToast('Choose a location.',true);const btn=wrap.querySelector('.create-new-bible');btn.disabled=true;btn.textContent='Creating…';sharedLocation={...item,set_name:setInput.value.trim()||item.set_name,episode_name:ep.value};cloudPayload=null;localStorage.removeItem('taylorScoutBibleV7');vendors.forEach(v=>v.status='working');const params=new URLSearchParams(location.search);params.set('locationId',item.id);params.set('episodeId',item.episode_id||ep.value);history.replaceState({},'',`${location.pathname}?${params.toString()}`);close();render();await saveBible();showToast('New Bible created')};
+}
+
 function showToast(message,isError=false){const old=document.querySelector('.toast');if(old)old.remove();const n=document.createElement('div');n.className=`toast${isError?' error':''}`;n.textContent=message;document.body.append(n);setTimeout(()=>n.remove(),2600)}
 
 function formatEventDate(value){if(!value)return '';const d=new Date(value);if(!isFinite(d))return value;return new Intl.DateTimeFormat('en-US',{weekday:'short',month:'2-digit',day:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(d).replace(',','').replace(' 0', ' ')}
