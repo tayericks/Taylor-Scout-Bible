@@ -93,7 +93,7 @@ function vendorOptionsFor(v){
  return vendorCatalog.filter(x=>x.category.includes(key||v.title)).map(x=>x.name);
 }
 function vendorLibrary(){
- return `<div class="modal-backdrop ${vendorLibraryOpen?'':'hidden'}" id="vendorLibraryModal"><div class="modal vendor-library-modal"><div class="modal-head"><div><small>EL DORADO SEASON 3</small><h2>Vendor Library</h2></div><button id="closeVendorLibrary">×</button></div><p>${vendorCatalog.length} vendors with contacts, setup status and known rates.</p><label class="search library-search">⌕<input id="vendorLibrarySearch" placeholder="Search vendor, category, contact or rate"></label><div class="vendor-library-list">${vendorCatalog.map((x,i)=>`<article class="library-row" data-library-text="${`${x.category} ${x.name} ${x.contact} ${x.rates}`.toLowerCase()}"><div><small>${x.category}</small><strong>${x.name}</strong><span>${x.contact}${x.phone?' · '+x.phone:''}${x.email?' · '+x.email:''}</span></div><div class="library-rate">${x.rates}</div><span class="library-status">${x.status}</span><button class="small-btn">Use vendor</button></article>`).join('')}</div></div></div>`;
+ return `<div class="modal-backdrop ${vendorLibraryOpen?'':'hidden'}" id="vendorLibraryModal"><div class="modal vendor-library-modal"><div class="modal-head"><div><small>EL DORADO SEASON 3</small><h2>Vendor Library</h2></div><button id="closeVendorLibrary" type="button" aria-label="Close vendor library">×</button></div><p>${vendorCatalog.length} vendors with contacts, setup status and known rates.</p><label class="search library-search">⌕<input id="vendorLibrarySearch" placeholder="Search vendor, category, contact or rate"></label><div class="vendor-library-list">${vendorCatalog.map((x,i)=>`<article class="library-row" data-library-text="${`${x.category} ${x.name} ${x.contact} ${x.rates}`.toLowerCase()}"><div><small>${x.category}</small><strong>${x.name}</strong><span>${x.contact}${x.phone?' · '+x.phone:''}${x.email?' · '+x.email:''}</span></div><div class="library-rate">${x.rates}</div><span class="library-status">${x.status}</span><button class="small-btn">Use vendor</button></article>`).join('')}</div></div></div>`;
 }
 
 function editor(v){
@@ -156,7 +156,11 @@ function bind(){
  const editLog=document.querySelector('#editLogistics');if(editLog)editLog.onclick=()=>alert('Edit Set, Basecamp, Crew Parking, and Catering logistics.');
  const ov=document.querySelector('#openVendorLibrary');if(ov)ov.onclick=()=>{vendorLibraryOpen=true;render()};
  document.querySelectorAll('.open-library').forEach(b=>b.onclick=()=>{vendorLibraryOpen=true;render()});
- const cv=document.querySelector('#closeVendorLibrary');if(cv)cv.onclick=()=>{vendorLibraryOpen=false;render()};
+ const closeVendorLibrary=()=>{vendorLibraryOpen=false;document.body.style.overflow='';render()};
+ const cv=document.querySelector('#closeVendorLibrary');if(cv){cv.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()})}
+ const vendorModal=document.querySelector('#vendorLibraryModal');if(vendorModal){document.body.style.overflow='hidden';vendorModal.addEventListener('click',e=>{if(e.target===vendorModal)closeVendorLibrary()})}
+ const escapeVendorLibrary=e=>{if(e.key==='Escape'&&vendorLibraryOpen){document.removeEventListener('keydown',escapeVendorLibrary);closeVendorLibrary()}};document.addEventListener('keydown',escapeVendorLibrary,{once:false});
+ document.querySelectorAll('.library-row .small-btn').forEach(btn=>btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()}));
  const vls=document.querySelector('#vendorLibrarySearch');if(vls)vls.oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll('.library-row').forEach(r=>r.style.display=r.dataset.libraryText.includes(q)?'grid':'none')};
  document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;state.expanded.has(id)?state.expanded.delete(id):state.expanded.add(id);render()});
  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{state.filter=b.dataset.filter;render()});
