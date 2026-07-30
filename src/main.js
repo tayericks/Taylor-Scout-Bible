@@ -76,8 +76,21 @@ const select=(label,options,value='')=>`<label class="field"><span>${label}</spa
 const scheduleRow=(date='2026-07-30',start='06:00',end='18:00',note='')=>`<div class="repeat-row">${input('Date',date,'date')}${input('Start',start,'time')}${input('End',end,'time')}${input('Area / note',note)}</div>`;
 
 function money(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(n||0));}
+function calculateBudgetItem(i){
+ if(!i)return 0;
+ if(i.calcType==='flat')return +(i.flatAmount||0);
+ if(i.calcType==='rateDay')return +(i.days||0)*+(i.dayRate||0);
+ if(i.calcType==='hourly'){const p=+(i.people||0),d=+(i.days||0),r=+(i.hourlyRate||0),reg=+(i.regHours||0),ot=+(i.ot15Hours||0),dt=+(i.ot2Hours||0),kit=+(i.kitFee||0);return p*d*(reg*r+ot*r*1.5+dt*r*2)+(i.kitFeeMode==='flat'?kit:p*d*kit)}
+ if(i.calcType==='dayRate')return +(i.people||0)*+(i.days||0)*+(i.dayRate||0)+(i.kitFeeMode==='flat'?+(i.kitFee||0):+(i.people||0)*+(i.days||0)*+(i.kitFee||0));
+ if(i.calcType==='vendor'){const base=i.vendorBillingType==='flat'?+(i.units||0)*+(i.vendorFlatRate||0):+(i.units||0)*+(i.weeks||0)*+(i.weeklyRate||0);return base+(+(i.units||0)*+(i.servicesPerUnit||0)*+(i.serviceRate||0))+(+(i.flatAmount||0))}
+ return 0;
+}
+const vendorSectionMap={security:'security',restrooms:'vendors',cleaning:'restoration',bins:'vendors',equipment:'vendors',catering:'vendors',snake:'vendors',maps:'parking'};
+const vendorKeywords={security:['security','guard','gaffer'],restrooms:['restroom','toilet'],cleaning:['clean'],bins:['bin','dumpster','trash','waste'],equipment:['equipment','hdr','glowbug'],catering:['catering','lunchbox'],snake:['snake','wrangler'],maps:['map']};
+function currentBudgetPage(){const list=sharedBudget?.budgets||[];return list.find(b=>sharedLocation?.id&&b.sharedLocationId===sharedLocation.id)||list.find(b=>b.location&&sharedLocation?.location_name&&b.location.toLowerCase()===sharedLocation.location_name.toLowerCase())||null}
+function lockedBudgetFor(v){const page=currentBudgetPage();if(!page)return 0;const keys=vendorKeywords[v.id]||[v.title.toLowerCase()];const matches=(page.items||[]).filter(i=>{const text=`${i.name||''} ${i.vendor||''}`.toLowerCase();return keys.some(k=>text.includes(k))});return matches.reduce((sum,i)=>sum+calculateBudgetItem(i),0)}
 function budgetEditor(v){
- const locked={security:4800,restrooms:2600,cleaning:1200,bins:2450,equipment:7200,catering:3200,snake:2650,maps:450}[v.id]||0;
+ const locked=lockedBudgetFor(v);
  return `<section class="budget-panel compare-panel" data-budget-card="${v.id}" data-locked-budget="${locked}">
    <div class="budget-compare">
      <div class="compare-block locked"><small>LOCKED BUDGET</small><strong>${money(locked)}</strong><span>Read-only from Budget</span></div>
@@ -194,7 +207,15 @@ function recalculateCard(card){if(!card)return;const panel=card.querySelector('[
  else if(id==='maps'){card.querySelectorAll('.map-lines>div').forEach(r=>total+=(+r.querySelector('select').value||0)*90)}
  else if(id==='cleaning'){card.querySelectorAll('.repeat-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins.length>=3)total+=hoursBetween(`${ins[0].value}T${ins[1].value}`,`${ins[0].value}T${ins[2].value}`)*75})}
  const locked=+panel.dataset.lockedBudget||0,diff=total-locked;panel.querySelector('.working-total').textContent=money(total);panel.querySelector('.variance-total').textContent=money(Math.abs(diff));panel.querySelector('.variance-total').classList.toggle('over',diff>0);panel.querySelector('.variance-note').textContent=diff>0?'Over budget':'Under budget';}
-function collectBiblePayload(){const commitments={};document.querySelectorAll('.vendor-card').forEach(card=>{const id=card.dataset.cardId,panel=card.querySelector('[data-budget-card]');commitments[id]={status:vendors.find(v=>v.id===id)?.status||'working',workingTotal:panel?Number((panel.querySelector('.working-total')?.textContent||'0').replace(/[^0-9.-]/g,'')):0,po:card.querySelector('.budget-meta input')?.value||''}});return{version:11,locationId:sharedLocation?.id||locationId||null,location:sharedLocation,updatedAt:new Date().toISOString(),statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),values:[...document.querySelectorAll('input,select,textarea')].map((el,i)=>({i,value:el.value,checked:el.checked,type:el.type})),commitments}}
+function collectBiblePayload(){
+ const commitments={};
+ document.querySelectorAll('.vendor-card').forEach(card=>{
+  const id=card.dataset.cardId,panel=card.querySelector('[data-budget-card]'),vendor=vendors.find(v=>v.id===id);
+  const amount=panel?Number((panel.querySelector('.working-total')?.textContent||'0').replace(/[^0-9.-]/g,'')):0;
+  commitments[id]={key:id,title:vendor?.title||id,vendor:vendor?.vendor||'',sectionId:vendorSectionMap[id]||'vendors',status:vendor?.status||'working',amount,workingTotal:amount,lockedBudget:lockedBudgetFor(vendor||{id,title:id}),po:card.querySelector('.budget-meta input')?.value||'',locationId:sharedLocation?.id||locationId||null,updatedAt:new Date().toISOString()}
+ });
+ return{version:12,locationId:sharedLocation?.id||locationId||null,location:sharedLocation,updatedAt:new Date().toISOString(),statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),values:[...document.querySelectorAll('input,select,textarea')].map((el,i)=>({i,value:el.value,checked:el.checked,type:el.type})),commitments}
+}
 async function saveBible(sectionOnly=false){const data=collectBiblePayload();localStorage.setItem('taylorScoutBibleV7',JSON.stringify(data));cloudPayload=data;const btn=document.querySelector('#saveBible');if(btn)btn.textContent='Saving…';try{if(configured&&showId){const session=await getSession();if(!session)throw new Error('Not signed in');await saveBibleDocument(showId,data);cloudState='Connected · saved'}else cloudState='Saved locally';if(btn)btn.textContent='✓ Saved'}catch(e){console.error('Bible save failed',e);cloudState=`Sync error: ${e.message||'save failed'}`;if(btn)btn.textContent='Save'}updateCloudStatus();setTimeout(()=>{if(btn)btn.textContent='Save'},1200);if(sectionOnly){const n=document.createElement('div');n.className='toast';n.textContent=cloudState.startsWith('Sync error')?cloudState:'Section saved';document.body.append(n);setTimeout(()=>n.remove(),1800)}}
 function applyPayload(data){if(!data)return;cloudPayload=data;Object.entries(data.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st});const els=[...document.querySelectorAll('input,select,textarea')];(data.values||[]).forEach(x=>{const el=els[x.i];if(!el)return;if(x.type==='checkbox'||x.type==='radio')el.checked=x.checked;else el.value=x.value});document.querySelectorAll('.vendor-card.expanded').forEach(recalculateCard)}
 function restoreValues(){try{const data=cloudPayload||JSON.parse(localStorage.getItem('taylorScoutBibleV7')||'null');applyPayload(data)}catch(e){console.warn(e)}}

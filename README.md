@@ -1,11 +1,3 @@
-# Taylor Scout Bible v11 — Shared Connected
+# Taylor Scout Bible v17 — Budget Commitments Sync
 
-This build uses the shared `.taylorscout.com` Supabase session and the show selected in the Hub.
-
-It reads shared locations from `production_locations`, reads the shared Budget document, and saves the Bible document to `tool_documents` with `tool_key = bible`. It preserves a local-browser backup and subscribes to realtime updates.
-
-Required Vercel environment variables:
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_BUDGET_URL=https://budget.taylorscout.com`
-- `VITE_WAYPOINT_URL=https://waypoint.taylorscout.com`
+This build reads real approved/estimated Budget line amounts for the matching shared location and saves structured vendor commitments back to the shared Bible document for Budget to consume.
