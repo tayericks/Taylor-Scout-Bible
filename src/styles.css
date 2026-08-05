@@ -79,3 +79,11 @@ html,body{min-height:100%;overflow-x:hidden}.app-shell{min-height:calc(100vh - 6
 @media(max-width:720px){.top-actions{overflow-x:auto}.logistics-edit-section .modal-grid{grid-template-columns:1fr}}
 .section-actions{display:flex;gap:10px;align-items:center}.extra-logistics-section{position:relative}.extra-logistics-section .remove-extra-logistics{margin-top:12px}.add-extra-logistics{margin:4px 0 18px}.logistics-grid{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))!important}
 .section-actions{display:flex;gap:10px;align-items:center}.extra-logistics-section{position:relative}.extra-logistics-section .remove-extra-logistics{margin-top:12px}.add-extra-logistics{margin:4px 0 18px}.logistics-grid{grid-template-columns:repeat(auto-fit,minmax(245px,1fr))!important}
+
+
+/* Connected tool switcher — matches Calendar */
+.tool-switcher{display:flex;align-items:center;padding:3px;background:#0a1d2d;border:1px solid #2b4b61;border-radius:10px;gap:2px}
+.tool-switcher .tool-tab{border:0;background:transparent;color:#bed0dc;padding:7px 10px;border-radius:7px;font-size:11px;font-weight:850;letter-spacing:.02em;cursor:pointer;line-height:1.2}
+.tool-switcher .tool-tab:hover{background:#18384f;color:#fff}.tool-switcher .tool-tab.active{background:#1ca4b3;color:#fff}
+@media(max-width:1150px){.topbar{align-items:flex-start;flex-wrap:wrap}.top-actions{width:100%;margin-left:0}.tool-switcher{order:-1}}
+@media print{.tool-switcher{display:none!important}}
