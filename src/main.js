@@ -53,6 +53,8 @@ const commonEquipment=["Pop-Up Tent 10x10 (White)", "Table-6ft Plastic", "Foldin
 let emailPreviewOpen=false;
 let undoStack=[];
 let cloudPayload=null;
+let bibleStore={version:18,activeBibleId:null,bibles:{}};
+let activeBibleId=new URLSearchParams(location.search).get('bibleId')||null;
 let cloudState=configured?'Connecting…':'Saved locally';
 let sharedLocation=null;
 let sharedLocations=[];
@@ -61,13 +63,20 @@ let realtimeStop=()=>{};
 
 const state={filter:'all',query:'',expanded:new Set(['security']),activeCategory:'All',openEpisode:'304'};
 const showId=getShowId();
-const locationId=getLocationId();
+let locationId=getLocationId();
 const locValue=(key,fallback='')=>sharedLocation?.[key]||fallback;
 const fullAddress=()=>[locValue('address','1773 Darling Ave'),[locValue('city','Frazier Park'),locValue('state','CA'),locValue('postal_code','93225')].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 function pushUndoSnapshot(){undoStack.push({html:document.querySelector('#app')?.innerHTML||'',statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),openEpisode:state.openEpisode});if(undoStack.length>20)undoStack.shift();updateUndoButton();}
 function updateUndoButton(){const b=document.querySelector('#undoAction');if(b)b.disabled=!undoStack.length;}
 function undoLast(){const snap=undoStack.pop();if(!snap)return;Object.entries(snap.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st});state.openEpisode=snap.openEpisode||'304';document.querySelector('#app').innerHTML=snap.html;bind();updateUndoButton();}
-function episodeSidebar(){const episodes=['303','304','305','306'];return episodes.map(ep=>{const open=state.openEpisode===ep;const count=ep==='304'?1:0;return `<div class="episode-group ${open?'open':''}"><button class="episode-row ${open?'active':''}" data-episode="${ep}"><span>${open?'⌄':'›'} Episode ${ep}</span><b>${count}</b></button>${ep==='304'?`<div class="bible-list"><button class="bible-link active"><strong>Darling Ranch</strong><small>Ext. Pine Forest</small><span class="count">8</span></button></div>`:`<div class="bible-list empty-episode"><span>No Bibles</span></div>`}</div>`}).join('');}
+function normalizeEpisode(value=''){const m=String(value).match(/(\d{3})/);return m?m[1]:String(value||'Unassigned').replace(/^Episode\s*/i,'')}
+function bibleRecords(){return Object.values(bibleStore?.bibles||{}).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))}
+function episodeSidebar(){
+ const records=bibleRecords();
+ const known=['303','304','305','306',...records.map(b=>normalizeEpisode(b.episodeName||b.episodeId))];
+ const episodes=[...new Set(known.filter(Boolean))];
+ return episodes.map(ep=>{const open=state.openEpisode===ep;const list=records.filter(b=>normalizeEpisode(b.episodeName||b.episodeId)===ep);return `<div class="episode-group ${open?'open':''}"><button class="episode-row ${open?'active':''}" data-episode="${esc(ep)}"><span>${open?'⌄':'›'} Episode ${esc(ep)}</span><b>${list.length}</b></button><div class="bible-list ${list.length?'':'empty-episode'}">${list.length?list.map(b=>`<button class="bible-link ${b.id===activeBibleId?'active':''}" data-bible-id="${esc(b.id)}"><strong>${esc(b.locationName||b.location?.location_name||'Unnamed location')}</strong><small>${esc(b.setName||b.location?.set_name||'Set TBD')}</small></button>`).join(''):'<span>No Bibles</span>'}</div></div>`}).join('');
+}
 const categories=['All',...new Set(vendors.map(v=>v.category))];
 const guardOptions=Array.from({length:21},(_,i)=>`<option>${i}</option>`).join('');
 const qtyOptions=Array.from({length:31},(_,i)=>`<option>${i}</option>`).join('');
@@ -166,6 +175,7 @@ function bind(){
  const allShows=document.querySelector('#allShows');if(allShows)allShows.onclick=()=>location.href='https://www.taylorscout.com';
  const nb=document.querySelector('#newBible');if(nb)nb.onclick=openNewBibleFlow;
  document.querySelectorAll('.episode-row').forEach(b=>b.onclick=()=>{state.openEpisode=state.openEpisode===b.dataset.episode?'':b.dataset.episode;render()});
+ document.querySelectorAll('.bible-link[data-bible-id]').forEach(b=>b.onclick=()=>selectBible(b.dataset.bibleId));
  const editLoc=document.querySelector('#editLocation');if(editLoc)editLoc.onclick=openLocationEditor;
  const editLog=document.querySelector('#editLogistics');if(editLog)editLog.onclick=()=>alert('Edit Set, Basecamp, Crew Parking, and Catering logistics.');
  const ov=document.querySelector('#openVendorLibrary');if(ov)ov.onclick=()=>{vendorLibraryOpen=true;render()};
@@ -214,13 +224,44 @@ function collectBiblePayload(){
   const amount=panel?Number((panel.querySelector('.working-total')?.textContent||'0').replace(/[^0-9.-]/g,'')):0;
   commitments[id]={key:id,title:vendor?.title||id,vendor:vendor?.vendor||'',sectionId:vendorSectionMap[id]||'vendors',status:vendor?.status||'working',amount,workingTotal:amount,lockedBudget:lockedBudgetFor(vendor||{id,title:id}),po:card.querySelector('.budget-meta input')?.value||'',locationId:sharedLocation?.id||locationId||null,updatedAt:new Date().toISOString()}
  });
- return{version:12,locationId:sharedLocation?.id||locationId||null,location:sharedLocation,updatedAt:new Date().toISOString(),statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),values:[...document.querySelectorAll('input,select,textarea')].map((el,i)=>({i,value:el.value,checked:el.checked,type:el.type})),commitments}
+ return{version:18,bibleId:activeBibleId,locationId:sharedLocation?.id||locationId||null,location:sharedLocation,locationName:sharedLocation?.location_name||'Unnamed location',setName:sharedLocation?.set_name||'',episodeName:sharedLocation?.episode_name||sharedLocation?.episode_id||'',updatedAt:new Date().toISOString(),statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),values:[...document.querySelectorAll('input,select,textarea')].map((el,i)=>({i,value:el.value,checked:el.checked,type:el.type})),commitments}
 }
-async function saveBible(sectionOnly=false){const data=collectBiblePayload();localStorage.setItem('taylorScoutBibleV7',JSON.stringify(data));cloudPayload=data;const btn=document.querySelector('#saveBible');if(btn)btn.textContent='Saving…';try{if(configured&&showId){const session=await getSession();if(!session)throw new Error('Not signed in');await saveBibleDocument(showId,data);cloudState='Connected · saved'}else cloudState='Saved locally';if(btn)btn.textContent='✓ Saved'}catch(e){console.error('Bible save failed',e);cloudState=`Sync error: ${e.message||'save failed'}`;if(btn)btn.textContent='Save'}updateCloudStatus();setTimeout(()=>{if(btn)btn.textContent='Save'},1200);if(sectionOnly){const n=document.createElement('div');n.className='toast';n.textContent=cloudState.startsWith('Sync error')?cloudState:'Section saved';document.body.append(n);setTimeout(()=>n.remove(),1800)}}
+async function saveBible(sectionOnly=false){
+ const data=collectBiblePayload();
+ if(!activeBibleId)activeBibleId=data.bibleId=crypto.randomUUID();
+ bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),...data,id:activeBibleId,createdAt:bibleStore.bibles[activeBibleId]?.createdAt||new Date().toISOString()};
+ bibleStore.activeBibleId=activeBibleId;
+ localStorage.setItem('taylorScoutBibleStoreV18',JSON.stringify(bibleStore));
+ localStorage.setItem('taylorScoutBibleV7',JSON.stringify(data));
+ cloudPayload=data;
+ const btn=document.querySelector('#saveBible');if(btn)btn.textContent='Saving…';
+ try{if(configured&&showId){const session=await getSession();if(!session)throw new Error('Not signed in');await saveBibleDocument(showId,bibleStore);cloudState='Connected · saved'}else cloudState='Saved locally';if(btn)btn.textContent='✓ Saved'}catch(e){console.error('Bible save failed',e);cloudState=`Sync error: ${e.message||'save failed'}`;if(btn)btn.textContent='Save'}
+ updateCloudStatus();setTimeout(()=>{if(btn)btn.textContent='Save'},1200);
+ if(sectionOnly){const n=document.createElement('div');n.className='toast';n.textContent=cloudState.startsWith('Sync error')?cloudState:'Section saved';document.body.append(n);setTimeout(()=>n.remove(),1800)}
+}
 function applyPayload(data){if(!data)return;cloudPayload=data;Object.entries(data.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st});const els=[...document.querySelectorAll('input,select,textarea')];(data.values||[]).forEach(x=>{const el=els[x.i];if(!el)return;if(x.type==='checkbox'||x.type==='radio')el.checked=x.checked;else el.value=x.value});document.querySelectorAll('.vendor-card.expanded').forEach(recalculateCard)}
-function restoreValues(){try{const data=cloudPayload||JSON.parse(localStorage.getItem('taylorScoutBibleV7')||'null');applyPayload(data)}catch(e){console.warn(e)}}
+function restoreValues(){try{const data=cloudPayload||bibleStore.bibles?.[activeBibleId]||JSON.parse(localStorage.getItem('taylorScoutBibleV7')||'null');applyPayload(data)}catch(e){console.warn(e)}}
 function updateCloudStatus(){const el=document.querySelector('#cloudStatus');if(el){el.textContent=cloudState;el.classList.toggle('error',cloudState.startsWith('Sync error')||cloudState==='Not signed in')}}
-async function refreshSharedData(){if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||sharedLocations.find(x=>x.is_final)||sharedLocations[0]||null;cloudPayload=doc?.payload||cloudPayload;if(cloudPayload)applyPayload(cloudPayload);cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
+function normalizeBibleStore(payload){
+ if(payload?.bibles)return{version:18,activeBibleId:payload.activeBibleId||null,bibles:payload.bibles||{}};
+ if(payload?.locationId||payload?.statuses||payload?.values){const id=payload.bibleId||`legacy-${payload.locationId||'default'}`;return{version:18,activeBibleId:id,bibles:{[id]:{...payload,id,createdAt:payload.updatedAt||new Date().toISOString()}}}}
+ return{version:18,activeBibleId:null,bibles:{}};
+}
+function resetVendorStatuses(){vendors.forEach(v=>v.status='working')}
+function selectBible(id){
+ const record=bibleStore.bibles?.[id];if(!record)return;
+ activeBibleId=id;bibleStore.activeBibleId=id;cloudPayload=record;locationId=record.locationId||record.location?.id||'';
+ sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||record.location||null;
+ state.openEpisode=normalizeEpisode(record.episodeName||record.episodeId||sharedLocation?.episode_name||sharedLocation?.episode_id);
+ resetVendorStatuses();
+ const params=new URLSearchParams(location.search);params.set('bibleId',id);if(locationId)params.set('locationId',locationId);history.replaceState({},'',`${location.pathname}?${params.toString()}`);
+ render();
+}
+async function refreshSharedData(){if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;bibleStore=normalizeBibleStore(doc?.payload||JSON.parse(localStorage.getItem('taylorScoutBibleStoreV18')||'null'));
+ const q=new URLSearchParams(location.search);const requestedId=q.get('bibleId');const requestedLocation=q.get('locationId')||locationId;
+ activeBibleId=(requestedId&&bibleStore.bibles[requestedId]?requestedId:null)||Object.values(bibleStore.bibles).find(b=>requestedLocation&&(b.locationId===requestedLocation||b.location?.id===requestedLocation))?.id||bibleStore.activeBibleId||Object.keys(bibleStore.bibles)[0]||null;
+ const record=activeBibleId?bibleStore.bibles[activeBibleId]:null;locationId=record?.locationId||requestedLocation||'';sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||record?.location||sharedLocations.find(x=>x.is_final)||sharedLocations[0]||null;cloudPayload=record||null;if(record){state.openEpisode=normalizeEpisode(record.episodeName||record.episodeId||sharedLocation?.episode_name||sharedLocation?.episode_id);resetVendorStatuses()};cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
+
 async function initShared(){await refreshSharedData();realtimeStop();realtimeStop=subscribeBible(showId,()=>refreshSharedData())}
 
 function esc(v=''){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
@@ -245,7 +286,12 @@ function openNewBibleFlow(){
  ep.onchange=()=>{loc.innerHTML=locationOptions(ep.value);updatePreview()};loc.onchange=updatePreview;updatePreview();
  wrap.querySelector('.modal-close').onclick=close;wrap.querySelector('.cancel-new-bible').onclick=close;wrap.onclick=e=>{if(e.target===wrap)close()};
  const key=e=>{if(e.key==='Escape'){document.removeEventListener('keydown',key);close()}};document.addEventListener('keydown',key);
- wrap.querySelector('#newBibleForm').onsubmit=async e=>{e.preventDefault();const item=sharedLocations.find(x=>x.id===loc.value);if(!item)return showToast('Choose a location.',true);const btn=wrap.querySelector('.create-new-bible');btn.disabled=true;btn.textContent='Creating…';sharedLocation={...item,set_name:setInput.value.trim()||item.set_name,episode_name:ep.value};cloudPayload=null;localStorage.removeItem('taylorScoutBibleV7');vendors.forEach(v=>v.status='working');const params=new URLSearchParams(location.search);params.set('locationId',item.id);params.set('episodeId',item.episode_id||ep.value);history.replaceState({},'',`${location.pathname}?${params.toString()}`);close();render();await saveBible();showToast('New Bible created')};
+ wrap.querySelector('#newBibleForm').onsubmit=async e=>{e.preventDefault();const item=sharedLocations.find(x=>x.id===loc.value);if(!item)return showToast('Choose a location.',true);const btn=wrap.querySelector('.create-new-bible');btn.disabled=true;btn.textContent='Creating…';
+ const id=crypto.randomUUID();activeBibleId=id;locationId=item.id;sharedLocation={...item,set_name:setInput.value.trim()||item.set_name,episode_name:ep.value};resetVendorStatuses();cloudPayload=null;
+ const blank={version:18,bibleId:id,id,locationId:item.id,location:sharedLocation,locationName:sharedLocation.location_name||'Unnamed location',setName:sharedLocation.set_name||'',episodeName:ep.value,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),statuses:Object.fromEntries(vendors.map(v=>[v.id,'working'])),values:[],commitments:{}};
+ bibleStore.bibles[id]=blank;bibleStore.activeBibleId=id;cloudPayload=blank;state.openEpisode=normalizeEpisode(ep.value);
+ const params=new URLSearchParams(location.search);params.set('bibleId',id);params.set('locationId',item.id);params.set('episodeId',item.episode_id||ep.value);history.replaceState({},'',`${location.pathname}?${params.toString()}`);
+ close();render();await saveBible();showToast('New Bible created')};
 }
 
 function showToast(message,isError=false){const old=document.querySelector('.toast');if(old)old.remove();const n=document.createElement('div');n.className=`toast${isError?' error':''}`;n.textContent=message;document.body.append(n);setTimeout(()=>n.remove(),2600)}
