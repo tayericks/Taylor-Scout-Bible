@@ -71,3 +71,9 @@ html,body{min-height:100%;overflow-x:hidden}.app-shell{min-height:calc(100vh - 6
 
 /* Bible v16: new Bible creation modal */
 .new-bible-modal{width:min(720px,96vw)!important}.new-bible-modal select,.new-bible-modal input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink);font:inherit}.new-bible-preview{grid-column:1/-1;border:1px solid #cfe1e3;background:#f2fbfa;border-radius:11px;padding:13px 14px;display:grid;gap:4px}.new-bible-preview strong{font-size:16px}.new-bible-preview span,.new-bible-preview small{color:var(--muted);font-size:12px}
+.dark-action.active-tool{background:var(--teal);border-color:var(--teal);color:#fff}
+.logistics-edit-modal{width:min(920px,96vw)}
+.logistics-edit-section{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 14px;background:#f8fafb}
+.logistics-edit-section legend{padding:0 8px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:850;color:var(--teal)}
+.logistics-edit-section .modal-grid{grid-template-columns:1fr 1fr}
+@media(max-width:720px){.top-actions{overflow-x:auto}.logistics-edit-section .modal-grid{grid-template-columns:1fr}}
