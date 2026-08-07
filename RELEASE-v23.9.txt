@@ -1,0 +1,6 @@
+Taylor Scout Bible v23.9
+- Equipment Add Item now adds only within its order location.
+- Added separate Add Order Location action.
+- Equipment order locations persist with the Bible payload.
+- Vendor order emails include relevant operational addresses.
+- Vendor-facing orders include only Location Manager contact fields when available, never property/location contacts.

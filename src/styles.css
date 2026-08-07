@@ -176,3 +176,6 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 .security-readonly-row.is-night{background:#f0f4f7!important}
 .security-readonly-row.is-night>span:nth-child(3)::after{content:' NIGHT';font-size:8px;font-weight:900;letter-spacing:.1em;color:#506576}
 .security-readonly-row.is-24h{background:linear-gradient(90deg,#fff 0 62%,#f1f5f8 100%)!important}
+
+/* v23.9 equipment order location controls */
+.add-equipment-row{margin-top:8px!important}.add-equipment-location{margin-top:14px!important;background:#eef7f7!important;border:1px solid #8fcfcb!important;color:#0d716e!important;font-weight:800!important}.equipment-group+.equipment-group{margin-top:14px!important}.equipment-group .equipment-table{margin-top:8px!important}
