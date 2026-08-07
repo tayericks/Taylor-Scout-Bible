@@ -1,0 +1,7 @@
+Taylor Scout Bible v23.11 — Manager acceptance fixes
+
+- Day-rate overtime math now matches Budget.
+- Vendor email context is generated from the active show/episode/location.
+- Security Planner uses canonical shared location ID for Calendar schedule lookup.
+- Saved form fields use semantic keys instead of a single global DOM index.
+- Legacy Gaffer role control removed.
