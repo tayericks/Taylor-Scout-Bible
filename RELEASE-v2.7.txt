@@ -1,0 +1,10 @@
+Taylor Scout Bible v23.7
+
+Security Planner fixes:
+- One Open Security Planner button in Bible
+- Drag a guard/post across consecutive calendar days to extend coverage
+- Coverage ranges remain one post record and calculate guard shifts/hours per day
+- Hourly rates are read from Budget; no rate editor in Bible
+- Removed Gaffer role from planner (Guard / Supervisor only)
+- Security order email contains no pricing
+- Bible security section remains read-only
