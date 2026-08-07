@@ -179,19 +179,3 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 
 /* v23.9 equipment order location controls */
 .add-equipment-row{margin-top:8px!important}.add-equipment-location{margin-top:14px!important;background:#eef7f7!important;border:1px solid #8fcfcb!important;color:#0d716e!important;font-weight:800!important}.equipment-group+.equipment-group{margin-top:14px!important}.equipment-group .equipment-table{margin-top:8px!important}
-
-/* v23.12 clean production print: document content only, no application/browser chrome */
-@media print{
-  @page{size:letter portrait;margin:0!important}
-  html,body{margin:0!important;padding:0!important;background:#fff!important}
-  .topbar,.top-actions,.brand,.brand-home,.tool-switcher,.cloud-status,.dark-action,
-  .sidebar,.hero-actions,.summary-actions,.controls,.category-tabs,
-  .vendor-toolbar button,.card-status-control,.equipment-tools,.equipment-results,
-  .add-row,.tiny,.open-library,.save-section,.preview-email,.section-head button,
-  #printBibleTop,#saveBible,#undoAction,#openCalendarTop,#openBudgetTop,#openBibleTop{
-    display:none!important;visibility:hidden!important
-  }
-  .app-shell{display:block!important;min-height:0!important}
-  .main{padding:.34in .34in .30in!important;margin:0!important;max-width:none!important;width:100%!important}
-  .hero-card{margin-top:0!important}
-}
