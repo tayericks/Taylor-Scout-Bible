@@ -1,7 +1,3 @@
-import { mountTaylorScoutCore } from '../../../packages/core/browser.js';
-
-mountTaylorScoutCore({ toolId: 'bible' });
-
 import{configured,getShowId,getLocationId,getSession,loadBible as loadBibleDocument,saveBibleDocument,loadBudget,loadLocations,updateLocation,subscribeBible}from'./supabase.js';
 const vendors = [
   {id:'security',category:'Site Operations',title:'Security',vendor:'Showbiz Inc',status:'ordered',summary:'24-hour, day and night coverage · Jul 30–Aug 4',contact:'Ray Barajas · 562-318-7807 · Rbarajasj@gmail.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO pending',type:'security'},
