@@ -1,0 +1,2 @@
+Taylor Scout Bible v23.13 — Invoice-informed future orders
+Updates Vendor Library and equipment order defaults with recent Hollywood Depot and Air On Location invoice items/rates. Known equipment rates prefill when selected. No shell/design changes.
