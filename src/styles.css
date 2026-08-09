@@ -195,3 +195,30 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
   .main{padding:.34in .34in .30in!important;margin:0!important;max-width:none!important;width:100%!important}
   .hero-card{margin-top:0!important}
 }
+
+
+/* v23.11 clearly distinguish the Bible card currently being edited */
+@media screen{
+  .vendor-card{
+    transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+  }
+  .vendor-card.expanded{
+    border:2px solid #169a9a!important;
+    box-shadow:0 0 0 4px rgba(22,154,154,.13),0 12px 28px rgba(16,40,59,.14)!important;
+    transform:translateY(-1px);
+  }
+  .vendor-card.expanded .vendor-summary{
+    background:linear-gradient(90deg,#e5f7f6 0%,#f5fbfb 72%,#fff 100%)!important;
+    box-shadow:inset 0 -1px 0 #9ed8d5;
+  }
+  .vendor-card.expanded .vendor-main small{
+    color:#087f80!important;
+  }
+  .vendor-card.expanded .chev{
+    color:#087f80!important;
+    font-weight:900;
+  }
+  .vendor-card.expanded .vendor-detail{
+    background:#fbfefe!important;
+  }
+}
