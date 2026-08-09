@@ -240,7 +240,7 @@ async function securityMapCenter(plan){
  return[34.052235,-118.243683];
 }
 function securityPinIcon(L,type,index){
- const color=type?.color||'#64748b';return L.divIcon({className:'security-leaflet-icon',html:`<span style="--pin-color:${color}">${index+1}</span>`,iconSize:[34,42],iconAnchor:[17,42],popupAnchor:[0,-40]})
+ const color=type?.color||'#64748b';return L.divIcon({className:'security-leaflet-icon',html:`<span style="--pin-color:${color}"><b>${index+1}</b></span>`,iconSize:[34,42],iconAnchor:[17,42],popupAnchor:[0,-40]})
 }
 async function mountSecurityMap(el,plan){
  if(!el)return;try{const L=await loadSecurityLeaflet();if(!el.isConnected)return;const center=await securityMapCenter(plan);if(!el.isConnected)return;const map=L.map(el,{zoomControl:true}).setView(center,17);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);const bounds=[];(plan.assignments||[]).forEach((a,i)=>{if(!Number.isFinite(Number(a.mapLat))||!Number.isFinite(Number(a.mapLng)))return;const point=[Number(a.mapLat),Number(a.mapLng)],type=plan.types.find(x=>x.id===a.typeId);L.marker(point,{icon:securityPinIcon(L,type,i)}).addTo(map).bindPopup(`<b>${esc(a.name||type?.name||'Security post')}</b><br>${Number(a.guards)||1} guard${Number(a.guards)===1?'':'s'}`);bounds.push(point)});if(bounds.length>1)map.fitBounds(bounds,{padding:[34,34],maxZoom:18});setTimeout(()=>map.invalidateSize(),60)}catch{el.innerHTML='<div class="security-map-unavailable">Map could not load. Reopen the planner to try again.</div>'}
