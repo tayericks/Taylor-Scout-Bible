@@ -298,3 +298,18 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 @media(max-width:760px){.security-placement-map{height:250px}}
 
 .security-leaflet-icon span b{display:block;transform:rotate(45deg);font-size:11px;line-height:1;color:#fff}
+
+
+/* v23.15 coverage popup map visibility */
+.security-coverage-modal{width:min(1080px,96vw)!important;max-height:calc(100vh - 36px);overflow:auto}
+.security-coverage-layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:18px;align-items:start}
+.security-coverage-layout .modal-grid{margin:0}
+.security-coverage-layout .security-placement-field{position:sticky;top:0;border:1px solid var(--ts-border);border-radius:8px;padding:12px;background:#f7fafb}
+.security-coverage-layout .security-placement-field>div:first-child span{display:block;margin-top:4px}
+.security-coverage-layout .security-placement-map{height:390px;background:#dce6e8}
+.security-coverage-modal .security-rate-note{margin-top:12px}
+@media(max-width:850px){
+ .security-coverage-layout{grid-template-columns:1fr}
+ .security-coverage-layout .security-placement-field{position:static}
+ .security-coverage-layout .security-placement-map{height:300px}
+}
