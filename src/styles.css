@@ -274,3 +274,25 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
   .vendor-drag-handle,.security-map-help{display:none!important}
   .vendor-summary{grid-template-columns:5px 1fr 1.3fr auto!important}
 }
+
+
+/* v23.14 geographic guard-post placement */
+.security-map-canvas .leaflet-container,.security-placement-map.leaflet-container{width:100%;height:100%;font-family:var(--ts-font)}
+.security-leaflet-icon{background:transparent!important;border:0!important}
+.security-leaflet-icon span{
+ width:34px;height:34px;display:grid;place-items:center;background:var(--pin-color,#169a9a);color:#fff;
+ border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+ box-shadow:0 3px 10px rgba(6,31,51,.4);font-size:11px;font-weight:900;
+}
+.security-leaflet-icon span::first-letter{transform:rotate(45deg)}
+.security-leaflet-icon span{line-height:1;text-shadow:0 1px 1px rgba(0,0,0,.28)}
+.security-leaflet-icon span{writing-mode:horizontal-tb}
+.security-leaflet-icon span{font-variant-numeric:tabular-nums}
+.security-placement-field{display:grid;gap:9px;margin-top:2px}
+.security-placement-field>div:first-child{display:grid;gap:3px}
+.security-placement-field b{font-size:12px;color:var(--ts-text)}
+.security-placement-field span{font-size:10px;color:var(--ts-muted);line-height:1.4}
+.security-placement-map{height:300px;border:1px solid var(--ts-border);border-radius:8px;overflow:hidden;background:#dce6e8}
+.security-map-unavailable{height:100%;display:grid;place-items:center;padding:20px;text-align:center;color:var(--ts-muted);font-size:11px}
+.security-map-canvas .leaflet-control-attribution,.security-placement-map .leaflet-control-attribution{font-size:8px}
+@media(max-width:760px){.security-placement-map{height:250px}}
