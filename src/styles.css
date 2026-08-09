@@ -313,3 +313,30 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
  .security-coverage-layout .security-placement-field{position:static}
  .security-coverage-layout .security-placement-map{height:300px}
 }
+
+
+/* v23.16 vendor-safe shared security map */
+.vendor-security-map-page{margin:0;background:#edf2f5!important;min-height:100vh}
+.vendor-map-sheet{width:min(1280px,calc(100% - 40px));margin:20px auto;background:#fff;border:1px solid var(--ts-border);border-radius:10px;overflow:hidden;box-shadow:var(--ts-shadow)}
+.vendor-map-sheet>header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 24px;background:var(--ts-navy);color:#fff}
+.vendor-map-sheet>header small{color:#5ad4cb;font-size:10px;font-weight:850;letter-spacing:.15em}
+.vendor-map-sheet>header h1{margin:5px 0 2px;color:#fff!important;font-size:28px}
+.vendor-map-sheet>header p{margin:0;color:#bad0dc}
+.vendor-map-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:680px}
+.vendor-map-canvas{min-height:680px;background:#dce6e8}
+.vendor-map-layout>aside{padding:22px;border-left:1px solid var(--ts-border)}
+.vendor-map-layout>aside>small{font-size:10px;font-weight:850;letter-spacing:.14em;color:var(--ts-teal-dark)}
+.vendor-map-layout>aside h2{margin:5px 0 18px}
+.vendor-map-key{display:grid;gap:8px}
+.vendor-map-key>div{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--ts-border);border-radius:8px;padding:10px}
+.vendor-map-key i{flex:0 0 30px;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:#fff;font-style:normal;font-weight:900}
+.vendor-map-key span{display:grid;gap:2px}
+.vendor-map-key b{font-size:13px}
+.vendor-map-key small{font-size:10px;color:var(--ts-muted)}
+.vendor-map-key em{font-size:10px;color:#405b6d;font-style:normal;margin-top:3px}
+.vendor-map-note{margin-top:18px;padding-top:14px;border-top:1px solid var(--ts-border);font-size:11px;line-height:1.5;color:var(--ts-muted)}
+@media(max-width:800px){.vendor-map-layout{grid-template-columns:1fr}.vendor-map-canvas{min-height:480px}.vendor-map-layout>aside{border-left:0;border-top:1px solid var(--ts-border)}}
+@media print{
+ .vendor-map-sheet{width:100%;margin:0;border:0;box-shadow:none}.vendor-map-print{display:none!important}
+ .vendor-map-layout{grid-template-columns:1fr 280px;min-height:7.5in}.vendor-map-canvas{min-height:7.5in}
+}
