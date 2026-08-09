@@ -340,3 +340,9 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
  .vendor-map-sheet{width:100%;margin:0;border:0;box-shadow:none}.vendor-map-print{display:none!important}
  .vendor-map-layout{grid-template-columns:1fr 280px;min-height:7.5in}.vendor-map-canvas{min-height:7.5in}
 }
+
+
+/* v23.17 vendor-order deletion */
+.vendor-footer .delete-vendor-order{margin-right:auto;padding:7px 10px!important;font-size:11px!important}
+.vendor-footer>div{flex-wrap:wrap;justify-content:flex-end}
+@media print{.delete-vendor-order{display:none!important}}
