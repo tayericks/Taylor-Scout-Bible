@@ -346,3 +346,11 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 .vendor-footer .delete-vendor-order{margin-right:auto;padding:7px 10px!important;font-size:11px!important}
 .vendor-footer>div{flex-wrap:wrap;justify-content:flex-end}
 @media print{.delete-vendor-order{display:none!important}}
+
+
+/* v23.18 deletable order locations */
+.location-group-head{grid-template-columns:minmax(220px,1fr) minmax(420px,1.3fr) auto!important}
+.location-group-head>.delete-order-location{align-self:end;white-space:nowrap;padding:8px 10px!important;font-size:11px!important}
+@media(max-width:1150px){.location-group-head{grid-template-columns:1fr 1fr!important}.location-group-head>.delete-order-location{grid-column:1/-1;justify-self:end}}
+@media(max-width:760px){.location-group-head{grid-template-columns:1fr!important}.location-group-head>.delete-order-location{grid-column:auto;justify-self:start}}
+@media print{.delete-order-location{display:none!important}}
