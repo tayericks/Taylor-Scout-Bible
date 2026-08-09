@@ -354,3 +354,12 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 @media(max-width:1150px){.location-group-head{grid-template-columns:1fr 1fr!important}.location-group-head>.delete-order-location{grid-column:1/-1;justify-self:end}}
 @media(max-width:760px){.location-group-head{grid-template-columns:1fr!important}.location-group-head>.delete-order-location{grid-column:auto;justify-self:start}}
 @media print{.delete-order-location{display:none!important}}
+
+
+/* v23.19 logistics-linked vendor order locations */
+.order-location-field{display:grid;gap:5px;min-width:0}
+.order-location-field>span{font-size:9px;font-weight:850;letter-spacing:.12em;color:var(--teal-dark)}
+.order-location-field select{width:100%;border:1px solid var(--ts-border);background:#fff;padding:9px 10px;font-weight:750;color:var(--ts-text)}
+.order-location-address{display:block!important;margin:0!important;font-size:10px!important;line-height:1.35;color:var(--ts-muted)!important;letter-spacing:0!important;text-transform:none!important;font-weight:600!important}
+.catering-row .order-location-field{min-width:220px}
+@media print{.order-location-field select{border:0!important;padding:0!important}.order-location-address{font-size:9px!important}}
