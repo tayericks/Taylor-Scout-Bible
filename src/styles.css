@@ -296,3 +296,5 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 .security-map-unavailable{height:100%;display:grid;place-items:center;padding:20px;text-align:center;color:var(--ts-muted);font-size:11px}
 .security-map-canvas .leaflet-control-attribution,.security-placement-map .leaflet-control-attribution{font-size:8px}
 @media(max-width:760px){.security-placement-map{height:250px}}
+
+.security-leaflet-icon span b{display:block;transform:rotate(45deg);font-size:11px;line-height:1;color:#fff}
