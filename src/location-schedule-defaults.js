@@ -1,3 +1,4 @@
+// Keeps Bible planner dates anchored to the selected location's Calendar schedule.
 import { configured, getShowId, getLocationId, getSession, loadCalendarDocument, loadBible } from './supabase.js';
 
 const LEGACY_DATES = new Set(['2026-07-30','2026-07-31','2026-08-01','2026-08-02','2026-08-03','2026-08-04']);
