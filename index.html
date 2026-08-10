@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/lifecycle-date-picker.css" />
   </head>
   <body>
     <div id="app"></div>
@@ -16,6 +17,7 @@
       // Prime the active location schedule before the Bible UI renders so
       // Security Planner and fresh vendor order dates use Calendar dates.
       await import('/src/location-schedule-defaults.js');
+      await import('/src/lifecycle-date-picker.js');
       await import('/src/main.js');
     </script>
   </body>
