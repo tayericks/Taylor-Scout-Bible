@@ -519,3 +519,27 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
   .vendor-planner-work .catering-row{grid-template-columns:1fr!important}
   .vendor-planner-work .catering-row .order-location-field{grid-column:auto}
 }
+
+
+/* Editable, vendor-grouped library */
+.library-vendor-card{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.library-vendor-card>summary{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:15px 17px;cursor:pointer;list-style:none}
+.library-vendor-card>summary::-webkit-details-marker{display:none}
+.library-vendor-card>summary:before{content:'›';font-size:24px;font-weight:800;color:var(--muted);margin-right:10px;grid-row:1;align-self:center}
+.library-vendor-card[open]>summary:before{content:'⌄'}
+.library-vendor-card>summary{grid-template-columns:auto 1fr auto}
+.library-vendor-card>summary div{min-width:0}
+.library-vendor-card>summary small,.library-vendor-card>summary strong,.library-vendor-card>summary span{display:block}
+.library-vendor-card>summary small{font-size:10px;letter-spacing:.1em;color:var(--teal);font-weight:850;text-transform:uppercase}
+.library-vendor-card>summary strong{margin:3px 0;font-size:15px;color:var(--navy)}
+.library-vendor-card>summary span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.library-vendor-card>summary>b{font-size:11px;color:var(--muted);white-space:nowrap}
+.library-items{border-top:1px solid var(--line);background:#f7fafb}
+.library-item-row{display:grid;grid-template-columns:minmax(240px,1fr) 140px 130px 38px;gap:10px;align-items:end;padding:10px 16px;border-bottom:1px solid #dde7eb}
+.library-item-row>input,.library-item-row select,.library-item-row label input{width:100%;min-width:0;height:40px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;color:var(--navy)}
+.library-item-row label span{display:block;margin-bottom:4px;font-size:9px;font-weight:850;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.delete-library-item{height:40px;border:1px solid #f1a3aa;border-radius:8px;background:#fff;color:var(--red);font-size:20px;font-weight:800}
+.add-library-item{margin:11px 16px 14px}
+.empty-library-items{margin:0;padding:14px 16px;color:var(--muted)}
+.library-save-note{padding:10px 2px 0;color:var(--muted);font-size:11px}
+@media(max-width:760px){.library-item-row{grid-template-columns:1fr 90px}.library-item-row select{grid-column:1}.delete-library-item{grid-column:2;grid-row:2}}
