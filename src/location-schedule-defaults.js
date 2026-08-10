@@ -62,10 +62,21 @@ async function primeLocationSchedule() {
     const record = currentBibleRecord(store);
     activeLocationId = activeLocationId || record?.locationId || record?.location?.id || '';
     const event = eventForLocation(calendarEvents(calendarPayload), activeLocationId);
-    firstPrep = event?.prepStart || '';
+    const schedule = event ? {
+      prepStart: event.prepStart || '',
+      prepEnd: event.prepEnd || event.prepStart || '',
+      holdStart: event.holdStart || '',
+      holdEnd: event.holdEnd || event.holdStart || '',
+      shootStart: event.shootStart || '',
+      shootEnd: event.shootEnd || event.shootStart || '',
+      strikeStart: event.strikeStart || '',
+      strikeEnd: event.strikeEnd || event.strikeStart || ''
+    } : {};
+    firstPrep = schedule.prepStart || '';
     shouldDefaultVendorDates = Boolean(firstPrep) && !recordHasVendorScheduling(record);
     window.__TS_LOCATION_FIRST_PREP__ = firstPrep;
     window.__TS_DEFAULT_VENDOR_DATES__ = shouldDefaultVendorDates;
+    window.__TS_LOCATION_SCHEDULE__ = schedule;
   } catch (err) {
     console.warn('Could not prime Bible location schedule', err);
   }
