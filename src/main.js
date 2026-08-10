@@ -67,6 +67,11 @@ let sharedLocations=[];
 let sharedBudget=null;
 let sharedCalendar=null;
 let realtimeStop=()=>{};
+let bibleSaveTimer=null;
+let bibleDirty=false;
+let bibleSaving=false;
+let bibleSaveQueued=false;
+let pendingRemoteRefresh=false;
 
 const state={filter:'all',query:'',expanded:new Set(['security']),activeCategory:'All',openEpisode:'304',logistics:null,vendorOrder:[],removedVendorIds:[],removedOrderLocations:[]};
 const showId=getShowId();
@@ -322,8 +327,8 @@ function bind(){
  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{state.filter=b.dataset.filter;render()});
  document.querySelectorAll('[data-category]').forEach(b=>b.onclick=()=>{state.activeCategory=b.dataset.category;render()});
  const search=document.querySelector('#searchInput');if(search)search.oninput=e=>{state.query=e.target.value;render();requestAnimationFrame(()=>document.querySelector('#searchInput')?.focus())};
- document.querySelectorAll('[data-status]').forEach(b=>b.onclick=async e=>{e.preventDefault();const v=vendors.find(x=>x.id===b.closest('.vendor-card').dataset.cardId);if(!v)return;pushUndoSnapshot();v.status=b.dataset.status;const target=cloudPayload||bibleStore.bibles?.[activeBibleId];if(target)target.statuses={...(target.statuses||{}),[v.id]:v.status};render();await saveBible(true)});
- document.querySelectorAll('.vendor-card input,.vendor-card select,.vendor-card textarea').forEach(el=>{el.addEventListener('input',()=>recalculateCard(el.closest('.vendor-card')));el.addEventListener('change',()=>recalculateCard(el.closest('.vendor-card')))});
+ document.querySelectorAll('[data-status]').forEach(b=>b.onclick=async e=>{e.preventDefault();const v=vendors.find(x=>x.id===b.closest('.vendor-card').dataset.cardId);if(!v)return;pushUndoSnapshot();v.status=b.dataset.status;const target=cloudPayload||bibleStore.bibles?.[activeBibleId];if(target)target.statuses={...(target.statuses||{}),[v.id]:v.status};await saveBible(true);render()});
+ document.querySelectorAll('.vendor-card input,.vendor-card select,.vendor-card textarea').forEach(el=>{el.addEventListener('input',()=>{recalculateCard(el.closest('.vendor-card'));markBibleDirty()});el.addEventListener('change',()=>{recalculateCard(el.closest('.vendor-card'));markBibleDirty()})});
  document.querySelectorAll('.vendor-card.expanded').forEach(recalculateCard);
  document.querySelectorAll('.service-all').forEach(x=>x.addEventListener('change',e=>e.target.closest('.service-units').querySelectorAll('input:not(.service-all)').forEach(c=>c.checked=e.target.checked)));
  document.querySelectorAll('.order-location-select').forEach(sel=>sel.onchange=()=>{const group=sel.closest('.location-order-group,.catering-row');syncOrderLocation(group);recalculateCard(sel.closest('.vendor-card'))});
@@ -335,25 +340,26 @@ function bind(){
  const save=document.querySelector('#saveBible');if(save)save.onclick=()=>saveBible(false);
  const ep=document.querySelector('#emailPending');if(ep)ep.onclick=()=>openEmailPreview(null);
  document.querySelectorAll('.equipment-search').forEach(inp=>inp.addEventListener('input',()=>filterEquipment(inp)));
- document.querySelectorAll('.quick-equip').forEach(b=>b.onclick=e=>{e.preventDefault();addEquipmentItem(b.closest('.equipment-group'),b.dataset.item)});
- document.querySelectorAll('.add-equipment-row').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentItem(b.closest('.equipment-group'),'')});
- document.querySelectorAll('.add-equipment-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentOrderLocation(b.closest('.custom-editor'))});
- document.querySelectorAll('.add-bin-swap').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinSwap(b)});
- document.querySelectorAll('.add-bin-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinLocation(b.closest('.custom-editor'),b)});
- document.querySelectorAll('.add-restroom-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomOrderLocation(b.closest('.custom-editor'),b)});
- document.querySelectorAll('.add-restroom-service').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomService(b)});
- document.querySelectorAll('.add-restroom-unit').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomUnit(b)});
+ document.querySelectorAll('.quick-equip').forEach(b=>b.onclick=e=>{e.preventDefault();addEquipmentItem(b.closest('.equipment-group'),b.dataset.item);markBibleDirty()});
+ document.querySelectorAll('.add-equipment-row').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentItem(b.closest('.equipment-group'),'');markBibleDirty()});
+ document.querySelectorAll('.add-equipment-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentOrderLocation(b.closest('.custom-editor'));markBibleDirty()});
+ document.querySelectorAll('.add-bin-swap').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinSwap(b);markBibleDirty()});
+ document.querySelectorAll('.add-bin-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinLocation(b.closest('.custom-editor'),b);markBibleDirty()});
+ document.querySelectorAll('.add-restroom-location').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomOrderLocation(b.closest('.custom-editor'),b);markBibleDirty()});
+ document.querySelectorAll('.add-restroom-service').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomService(b);markBibleDirty()});
+ document.querySelectorAll('.add-restroom-unit').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomUnit(b);markBibleDirty()});
  document.querySelectorAll('.delete-order-location').forEach(b=>b.onclick=async e=>{e.preventDefault();const group=b.closest('.location-order-group'),card=b.closest('.vendor-card');if(!group||!card)return;const locationSelect=group.querySelector('.order-location-select'),name=locationSelect?.selectedOptions?.[0]?.textContent?.trim()||'this location';if(!confirm(`Delete ${name}? This removes the entire location and its scheduled items from this vendor order.`))return;pushUndoSnapshot();const key=`${card.dataset.cardId}:${group.dataset.location}`;state.removedOrderLocations=[...new Set([...state.removedOrderLocations,key])];group.remove();recalculateCard(card);await saveBible(true)});
  document.querySelectorAll('.delete-vendor-order').forEach(b=>b.onclick=async e=>{e.preventDefault();const card=b.closest('.vendor-card'),v=vendors.find(x=>x.id===card?.dataset.cardId);if(!v||!confirm(`Delete ${v.title} from this Bible? This removes the entire vendor order.`))return;pushUndoSnapshot();state.removedVendorIds=[...new Set([...state.removedVendorIds,v.id])];state.expanded.delete(v.id);await saveBible(true);render()});
- document.querySelectorAll('.remove-restroom-unit').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();removeRestroomUnit(b)});
- document.querySelectorAll('.tiny:not(.remove-restroom-unit)').forEach(b=>b.onclick=e=>{e.preventDefault();const row=b.closest('.security-row,.service-row,.swap-row,.eq-row');if(row){pushUndoSnapshot();row.remove();recalculateCard(b.closest('.vendor-card'))}});
- document.querySelectorAll('.add-row:not(.add-equipment-row):not(.add-equipment-location):not(.add-bin-swap):not(.add-bin-location):not(.add-restroom-location):not(.add-restroom-service):not(.add-restroom-unit)').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();duplicateRelevantRow(b)});
+ document.querySelectorAll('.remove-restroom-unit').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();removeRestroomUnit(b);markBibleDirty()});
+ document.querySelectorAll('.tiny:not(.remove-restroom-unit)').forEach(b=>b.onclick=e=>{e.preventDefault();const row=b.closest('.security-row,.service-row,.swap-row,.eq-row');if(row){pushUndoSnapshot();row.remove();recalculateCard(b.closest('.vendor-card'));markBibleDirty()}});
+ document.querySelectorAll('.add-row:not(.add-equipment-row):not(.add-equipment-location):not(.add-bin-swap):not(.add-bin-location):not(.add-restroom-location):not(.add-restroom-service):not(.add-restroom-unit)').forEach(b=>b.onclick=e=>{e.preventDefault();pushUndoSnapshot();duplicateRelevantRow(b);markBibleDirty()});
  restoreValues();
 }
 
 function wireDynamicOrderRow(row){
- const card=row.closest('.vendor-card');row.querySelectorAll('input,select,textarea').forEach(el=>{el.addEventListener('input',()=>recalculateCard(card));el.addEventListener('change',()=>recalculateCard(card))});
- const remove=row.querySelector('.tiny');if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();row.remove();recalculateCard(card)}
+ const card=row.closest('.vendor-card');row.querySelectorAll('input,select,textarea').forEach(el=>{el.addEventListener('input',()=>{recalculateCard(card);markBibleDirty()});el.addEventListener('change',()=>{recalculateCard(card);markBibleDirty()})});
+ const remove=row.querySelector('.tiny');if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();row.remove();recalculateCard(card);markBibleDirty()}
+ markBibleDirty();
 }
 function addBinSwap(button){
  const list=button.closest('.swap-list');if(!list)return;const row=document.createElement('div');row.className='swap-row';row.innerHTML='<select><option>Swap</option><option>Extra Service</option></select><input type="datetime-local"><input placeholder="Notes"><button class="tiny" type="button">×</button>';button.before(row);wireDynamicOrderRow(row);row.querySelector('input[type=datetime-local]')?.focus();recalculateCard(button.closest('.vendor-card'))
@@ -416,7 +422,17 @@ async function deleteBibleRecord(){
  render();
 }
 
-async function saveBible(sectionOnly=false){
+function markBibleDirty(){
+ bibleDirty=true;
+ cloudState='Unsaved changes';
+ updateCloudStatus();
+ clearTimeout(bibleSaveTimer);
+ bibleSaveTimer=setTimeout(()=>saveBible(true,true),650);
+}
+async function saveBible(sectionOnly=false,silent=false){
+ clearTimeout(bibleSaveTimer);
+ if(bibleSaving){bibleSaveQueued=true;return false}
+ bibleSaving=true;
  const data=collectBiblePayload();
  if(!activeBibleId)activeBibleId=data.bibleId=crypto.randomUUID();
  bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),...data,id:activeBibleId,createdAt:bibleStore.bibles[activeBibleId]?.createdAt||new Date().toISOString()};
@@ -425,9 +441,14 @@ async function saveBible(sectionOnly=false){
  localStorage.setItem('taylorScoutBibleV7',JSON.stringify(data));
  cloudPayload=data;
  const btn=document.querySelector('#saveBible');if(btn)btn.textContent='Saving…';
- try{if(configured&&showId){const session=await getSession();if(!session)throw new Error('Not signed in');await saveBibleDocument(showId,bibleStore);cloudState='Connected · saved'}else cloudState='Saved locally';if(btn)btn.textContent='✓ Saved'}catch(e){console.error('Bible save failed',e);cloudState=`Sync error: ${e.message||'save failed'}`;if(btn)btn.textContent='Save'}
+ let saved=false;
+ try{if(configured&&showId){const session=await getSession();if(!session)throw new Error('Not signed in');const result=await saveBibleDocument(showId,bibleStore);if(result?.conflicts?.length)throw new Error('This Bible changed in another session. Your edits are still here; reload before saving again.');cloudState='Connected · saved'}else cloudState='Saved locally';bibleDirty=false;saved=true;if(btn)btn.textContent='✓ Saved'}catch(e){console.error('Bible save failed',e);bibleDirty=true;cloudState=`Sync error: ${e.message||'save failed'}`;if(btn)btn.textContent='Save'}
+ bibleSaving=false;
  updateCloudStatus();setTimeout(()=>{if(btn)btn.textContent='Save'},1200);
- if(sectionOnly){const n=document.createElement('div');n.className='toast';n.textContent=cloudState.startsWith('Sync error')?cloudState:'Section saved';document.body.append(n);setTimeout(()=>n.remove(),1800)}
+ if(sectionOnly&&!silent){const n=document.createElement('div');n.className='toast';n.textContent=saved?'Section saved':cloudState;document.body.append(n);setTimeout(()=>n.remove(),1800)}
+ if(bibleSaveQueued){bibleSaveQueued=false;setTimeout(()=>saveBible(true,true),0)}
+ else if(pendingRemoteRefresh&&saved){pendingRemoteRefresh=false;setTimeout(()=>refreshSharedData(true),0)}
+ return saved;
 }
 function applyPayload(data){if(!data)return;restoreVendorEditors(data.vendorEditors);state.removedVendorIds=Array.isArray(data.removedVendorIds)?data.removedVendorIds:[];state.removedOrderLocations=Array.isArray(data.removedOrderLocations)?data.removedOrderLocations:[];state.vendorOrder=Array.isArray(data.vendorOrder)?data.vendorOrder:state.vendorOrder;if(data.equipmentOrders)restoreEquipmentOrders(data.equipmentOrders);if(data.securityPlanner)try{localStorage.setItem(securityPlanStorageKey(),JSON.stringify(data.securityPlanner))}catch{}cloudPayload=data;state.logistics=data.logistics||state.logistics||defaultLogistics();Object.entries(data.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st});restoreFormValues(data.values||[]);document.querySelectorAll('.vendor-card.expanded').forEach(recalculateCard)}
 function restoreValues(){try{const data=cloudPayload||bibleStore.bibles?.[activeBibleId]||JSON.parse(localStorage.getItem('taylorScoutBibleV7')||'null');applyPayload(data)}catch(e){console.warn(e)}}
@@ -447,12 +468,12 @@ function selectBible(id){
  const params=new URLSearchParams(location.search);params.set('bibleId',id);if(locationId)params.set('locationId',locationId);history.replaceState({},'',`${location.pathname}?${params.toString()}`);
  render();
 }
-async function refreshSharedData(){if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget,calendar]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId),loadCalendarDocument(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedCalendar=calendar?.payload||null;bibleStore=normalizeBibleStore(doc?.payload||JSON.parse(localStorage.getItem('taylorScoutBibleStoreV18')||'null'));
+async function refreshSharedData(fromRealtime=false){if(fromRealtime&&(bibleDirty||bibleSaving)){pendingRemoteRefresh=true;return}if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget,calendar]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId),loadCalendarDocument(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedCalendar=calendar?.payload||null;bibleStore=normalizeBibleStore(doc?.payload||JSON.parse(localStorage.getItem('taylorScoutBibleStoreV18')||'null'));
  const q=new URLSearchParams(location.search);const requestedId=q.get('bibleId');const requestedLocation=q.get('locationId')||locationId;
  activeBibleId=(requestedId&&bibleStore.bibles[requestedId]?requestedId:null)||Object.values(bibleStore.bibles).find(b=>requestedLocation&&(b.locationId===requestedLocation||b.location?.id===requestedLocation))?.id||bibleStore.activeBibleId||Object.keys(bibleStore.bibles)[0]||null;
  const record=activeBibleId?bibleStore.bibles[activeBibleId]:null;locationId=record?.locationId||requestedLocation||'';sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||record?.location||sharedLocations.find(x=>x.is_final)||sharedLocations[0]||null;cloudPayload=record||null;if(record){state.openEpisode=normalizeEpisode(record.episodeName||record.episodeId||sharedLocation?.episode_name||sharedLocation?.episode_id);state.removedVendorIds=Array.isArray(record.removedVendorIds)?record.removedVendorIds:[];state.removedOrderLocations=Array.isArray(record.removedOrderLocations)?record.removedOrderLocations:[];resetVendorStatuses()};cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
 
-async function initShared(){await refreshSharedData();realtimeStop();realtimeStop=subscribeBible(showId,()=>refreshSharedData())}
+async function initShared(){await refreshSharedData(false);realtimeStop();realtimeStop=subscribeBible(showId,()=>refreshSharedData(true))}
 
 function esc(v=''){return String(v??'').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]))}
 function openLogisticsEditor(addBlank=false){
@@ -469,13 +490,13 @@ function openLogisticsEditor(addBlank=false){
  const rebuildExtras=()=>{const box=wrap.querySelector('#extraLogisticsEditor');box.innerHTML=l.extras.map(extraSection).join('');box.querySelectorAll('.remove-extra-logistics').forEach((b,i)=>b.onclick=()=>{l.extras.splice(i,1);rebuildExtras()})};
  wrap.querySelector('.add-extra-logistics').onclick=()=>{l.extras.push({label:'',name:'',uses:'',address:'',contact:'',phone:''});rebuildExtras();setTimeout(()=>wrap.querySelector('#extraLogisticsEditor fieldset:last-child input')?.focus(),0)};
  rebuildExtras();
- wrap.querySelector('#logisticsEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);const read=key=>({sameAs:String(f.get(`${key}_sameAs`)||''),name:String(f.get(`${key}_name`)||''),uses:String(f.get(`${key}_uses`)||''),address:String(f.get(`${key}_address`)||''),contact:String(f.get(`${key}_contact`)||''),phone:String(f.get(`${key}_phone`)||'')});const extras=l.extras.map((_,i)=>({label:String(f.get(`extra_${i}_label`)||'').trim(),sameAs:String(f.get(`extra_${i}_sameAs`)||''),name:String(f.get(`extra_${i}_name`)||''),uses:String(f.get(`extra_${i}_uses`)||''),address:String(f.get(`extra_${i}_address`)||''),contact:String(f.get(`extra_${i}_contact`)||''),phone:String(f.get(`extra_${i}_phone`)||'')})).filter(x=>x.label||x.name||x.uses||x.address||x.contact||x.phone);pushUndoSnapshot();state.logistics={set:read('set'),basecamp:read('basecamp'),crewParking:read('crewParking'),catering:read('catering'),extras};close();render();await saveBible(true)};
+ wrap.querySelector('#logisticsEditForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);const read=key=>({sameAs:String(f.get(`${key}_sameAs`)||''),name:String(f.get(`${key}_name`)||''),uses:String(f.get(`${key}_uses`)||''),address:String(f.get(`${key}_address`)||''),contact:String(f.get(`${key}_contact`)||''),phone:String(f.get(`${key}_phone`)||'')});const extras=l.extras.map((_,i)=>({label:String(f.get(`extra_${i}_label`)||'').trim(),sameAs:String(f.get(`extra_${i}_sameAs`)||''),name:String(f.get(`extra_${i}_name`)||''),uses:String(f.get(`extra_${i}_uses`)||''),address:String(f.get(`extra_${i}_address`)||''),contact:String(f.get(`extra_${i}_contact`)||''),phone:String(f.get(`extra_${i}_phone`)||'')})).filter(x=>x.label||x.name||x.uses||x.address||x.contact||x.phone);pushUndoSnapshot();state.logistics={set:read('set'),basecamp:read('basecamp'),crewParking:read('crewParking'),catering:read('catering'),extras};close();await saveBible(true);render()};
 }
 function openLocationEditor(){
  if(!sharedLocation){showToast('No shared location is selected. Open this Bible from a location record first.',true);return}
  const wrap=document.createElement('div');wrap.className='modal-backdrop';wrap.innerHTML=`<section class="location-modal" role="dialog" aria-modal="true" aria-labelledby="editLocationTitle"><div class="modal-head"><div><small>SHARED LOCATION</small><h2 id="editLocationTitle">Edit location</h2></div><button class="modal-close" type="button" aria-label="Close">×</button></div><form id="locationEditForm"><div class="modal-grid"><label><span>Location name</span><input name="location_name" required value="${esc(sharedLocation.location_name)}"></label><label><span>Set name(s)</span><input name="set_name" value="${esc(sharedLocation.set_name)}"></label><label class="wide"><span>Street address</span><input name="address" value="${esc(sharedLocation.address)}"></label><label><span>City</span><input name="city" value="${esc(sharedLocation.city)}"></label><label><span>State</span><input name="state" value="${esc(sharedLocation.state)}"></label><label><span>ZIP</span><input name="postal_code" value="${esc(sharedLocation.postal_code)}"></label><label><span>Area</span><input name="area" value="${esc(sharedLocation.area)}"></label><label><span>Primary contact</span><input name="contact_name" value="${esc(sharedLocation.contact_name)}"></label><label><span>Phone</span><input name="contact_phone" value="${esc(sharedLocation.contact_phone)}"></label><label class="wide"><span>Email</span><input type="email" name="contact_email" value="${esc(sharedLocation.contact_email)}"></label></div><p class="modal-note">Changes update the shared location record used by Location List, Calendar, Budget, Bible, and Scout Route.</p><div class="modal-actions"><button type="button" class="ghost cancel-location">Cancel</button><button type="submit" class="primary save-location">Save shared location</button></div></form></section>`;
  document.body.append(wrap);const close=()=>wrap.remove();wrap.querySelector('.modal-close').onclick=close;wrap.querySelector('.cancel-location').onclick=close;wrap.onclick=e=>{if(e.target===wrap)close()};
- wrap.querySelector('#locationEditForm').onsubmit=async e=>{e.preventDefault();const btn=wrap.querySelector('.save-location');btn.disabled=true;btn.textContent='Saving…';const fd=new FormData(e.currentTarget);const changes=Object.fromEntries([...fd.entries()].map(([k,v])=>[k,String(v).trim()]));try{sharedLocation=await updateLocation(sharedLocation.id,changes);cloudState='Connected · saved';close();render();showToast('Shared location updated');}catch(err){console.error('Location update failed',err);btn.disabled=false;btn.textContent='Save shared location';showToast(err.message||'Could not update location',true)}};
+ wrap.querySelector('#locationEditForm').onsubmit=async e=>{e.preventDefault();const btn=wrap.querySelector('.save-location');btn.disabled=true;btn.textContent='Saving…';const fd=new FormData(e.currentTarget);const changes=Object.fromEntries([...fd.entries()].map(([k,v])=>[k,String(v).trim()]));try{sharedLocation=await updateLocation(sharedLocation.id,changes);const record=bibleStore.bibles?.[activeBibleId];if(record){record.location=sharedLocation;record.locationId=sharedLocation.id;record.locationName=sharedLocation.location_name;record.setName=sharedLocation.set_name}close();await saveBible(true,true);render();showToast('Shared location updated');}catch(err){console.error('Location update failed',err);btn.disabled=false;btn.textContent='Save shared location';showToast(err.message||'Could not update location',true)}};
  setTimeout(()=>wrap.querySelector('input')?.focus(),0)
 }
 
