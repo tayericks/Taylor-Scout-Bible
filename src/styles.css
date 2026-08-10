@@ -496,3 +496,26 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 .vendor-planner-work .add-row{margin-top:10px!important}
 .live-order-preview{max-height:calc(100vh - 160px);overflow:auto}
 @media(max-width:760px){.vendor-planner-work .restroom-units{grid-template-columns:1fr!important}.vendor-planner-work .service-row{grid-template-columns:1fr 40px!important}.vendor-planner-work .service-units{grid-column:1/-1}}
+
+
+/* v24.4 catering planner containment */
+.vendor-planner-work .catering-row{
+  grid-template-columns:minmax(120px,.7fr) minmax(96px,.55fr) minmax(190px,1fr) minmax(190px,1fr) minmax(220px,1.15fr)!important;
+  align-items:end;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+.vendor-planner-work .catering-row>*{min-width:0!important}
+.vendor-planner-work .catering-row .field,
+.vendor-planner-work .catering-row .order-location-field{width:100%;min-width:0!important}
+.vendor-planner-work .catering-row input,
+.vendor-planner-work .catering-row select{width:100%;min-width:0;box-sizing:border-box}
+@media(max-width:1280px){
+  .vendor-planner-work .catering-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .vendor-planner-work .catering-row .order-location-field{grid-column:1/-1}
+}
+@media(max-width:700px){
+  .vendor-planner-work .catering-row{grid-template-columns:1fr!important}
+  .vendor-planner-work .catering-row .order-location-field{grid-column:auto}
+}
