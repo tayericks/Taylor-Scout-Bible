@@ -916,3 +916,55 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 @media(max-width:900px){
   .security-budget-guide{grid-template-columns:1fr}
 }
+
+
+/* Shared planner review workflow */
+.security-status-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:10px 14px;
+  border-bottom:1px solid #cad8e0;
+  background:#fff;
+}
+.security-status-bar>span{
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.12em;
+  color:#6a7d89;
+}
+.security-status-bar .status-toggle{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.security-status-bar .status-toggle button{
+  border:1px solid #cbd8df;
+  background:#fff;
+  color:#10283b;
+  border-radius:8px;
+  padding:7px 11px;
+  font-size:10px;
+  font-weight:800;
+}
+.security-status-bar .status-toggle button.active.working{
+  background:#6f7e87;
+  border-color:#6f7e87;
+  color:#fff;
+}
+.security-status-bar .status-toggle button.active.review{
+  background:#f0b429;
+  border-color:#f0b429;
+  color:#10283b;
+}
+.security-status-bar .status-toggle button.active.approved{
+  background:#d8f2e5;
+  border-color:#86c9a8;
+  color:#17633c;
+}
+.security-status-bar .status-toggle button.active.ordered{
+  background:#d8eff0;
+  border-color:#7cc4c2;
+  color:#0d5d61;
+}
