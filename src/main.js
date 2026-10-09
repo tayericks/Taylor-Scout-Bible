@@ -251,8 +251,13 @@ function hydrateVendorTemplatesFromBudget(page){
  resetVendorTemplates();
  const record=cloudPayload||bibleStore.bibles?.[activeBibleId]||{};
  const overrides=record.vendorOverrides||{};
+ const restoreStatuses=()=>Object.entries(record.statuses||{}).forEach(([id,status])=>{
+  const vendor=vendors.find(v=>v.id===id);
+  if(vendor&&statusFlow.includes(status))vendor.status=status;
+ });
  if(!page){
   vendors.forEach(v=>{if(overrides[v.id])v.vendor=overrides[v.id]});
+  restoreStatuses();
   return;
  }
  vendors.forEach(v=>{
@@ -264,6 +269,7 @@ function hydrateVendorTemplatesFromBudget(page){
    v.stamp=overrides[v.id]?'Vendor selected in Bible':'Budget imported';v.po='No PO';
   }else if(overrides[v.id])v.vendor=overrides[v.id];
  });
+ restoreStatuses();
 }
 function locationForBudget(page){
  const id=page?.sharedLocationId;
@@ -795,7 +801,8 @@ function securityVendorMapUrl(){
 function openVendorSecurityMap(plan=loadSecurityPlan()){
  const app=document.querySelector('#app'),address=resolvedLogistics().set?.address||fullAddress(),name=locValue('location_name','Location');
  document.body.className='vendor-security-map-page';
- app.innerHTML=`<main class="vendor-map-sheet"><header><div><small>TAYLOR SCOUT · SECURITY POST MAP</small><h1>${esc(name)}</h1><p>${esc(address)}</p></div><button class="ghost vendor-map-print">Print Map</button></header><section class="vendor-map-layout"><div class="vendor-map-canvas" id="vendorSecurityMap"></div><aside><small>GUARD POST KEY</small><h2>Security placement</h2><div class="vendor-map-key">${plan.assignments.map((a,i)=>{const type=plan.types.find(x=>x.id===a.typeId);return`<div><i style="background:${type?.color||'#64748b'}">${i+1}</i><span><b>${esc(a.name||type?.name||'Security post')}</b><small>${esc(type?.name||'Post')} · ${Number(a.guards)||1} guard${Number(a.guards)===1?'':'s'}</small>${a.note?`<em>${esc(a.note)}</em>`:''}</span></div>`}).join('')||'<p>No posts have been placed.</p>'}</div><p class="vendor-map-note">Numbered pins show the approved security post locations for this order. Contact the Location Manager with placement questions.</p></aside></section></main>`;
+ app.innerHTML=`<main class="vendor-map-sheet"><header><div><small>TAYLOR SCOUT · SECURITY POST MAP</small><h1>${esc(name)}</h1><p>${esc(address)}</p></div><div class="vendor-map-actions"><button class="ghost vendor-map-back">Back to Bible</button><button class="ghost vendor-map-print">Print Map</button></div></header><section class="vendor-map-layout"><div class="vendor-map-canvas" id="vendorSecurityMap"></div><aside><small>GUARD POST KEY</small><h2>Security placement</h2><div class="vendor-map-key">${plan.assignments.map((a,i)=>{const type=plan.types.find(x=>x.id===a.typeId);return`<div><i style="background:${type?.color||'#64748b'}">${i+1}</i><span><b>${esc(a.name||type?.name||'Security post')}</b><small>${esc(type?.name||'Post')} · ${Number(a.guards)||1} guard${Number(a.guards)===1?'':'s'}</small>${a.note?`<em>${esc(a.note)}</em>`:''}</span></div>`}).join('')||'<p>No posts have been placed.</p>'}</div><p class="vendor-map-note">Numbered pins show the approved security post locations for this order. Contact the Location Manager with placement questions.</p></aside></section></main>`;
+ const back=app.querySelector('.vendor-map-back');if(back)back.onclick=()=>location.reload();
  app.querySelector('.vendor-map-print').onclick=()=>window.print();
  mountSecurityMap(app.querySelector('#vendorSecurityMap'),plan,address);
 }
@@ -1260,4 +1267,4 @@ function filterEquipment(inp){const q=inp.value.toLowerCase();const list=inp.clo
 function duplicateRelevantRow(button){const editor=button.closest('.custom-editor');if(!editor)return;const scope=button.closest('.location-order-group')||editor;const candidates=[...scope.querySelectorAll('.security-row,.service-row,.swap-row,.repeat-row,.map-lines>div')];let source=candidates[candidates.length-1];if(source){const clone=source.cloneNode(true);source.after(clone);clone.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(editor.closest('.vendor-card')));el.addEventListener('change',()=>recalculateCard(editor.closest('.vendor-card')))});return}const group=editor.querySelector('.location-order-group:last-of-type');if(group){const clone=group.cloneNode(true);group.after(clone)}}
 
 render();
-initShared().then(()=>{if(new URLSearchParams(location.search).get('securityMap')==='1')openVendorSecurityMap()});
+initShared().then(()=>{const params=new URLSearchParams(location.search);if(params.get('securityMap')==='1'){openVendorSecurityMap();params.delete('securityMap');const qs=params.toString();history.replaceState({},'',location.pathname+(qs?'?'+qs:''));}});
