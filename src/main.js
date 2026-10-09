@@ -607,7 +607,7 @@ function openSecurityPlanner(){
   const dayHeads=days.map(d=>`<div class="security-day-head ${securityLifecycleClass(d.kind)}"><b>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'})}</b><span>${new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span><small>${d.label}</small></div>`).join('');
   const rows=types.map(type=>`<div class="security-type-label"><span class="security-color-dot" style="background:${type.color}"></span><b>${esc(type.name)}</b><div><button class="sec-filter-type" data-type="${type.id}">Hide</button><button class="sec-delete-type" data-type="${type.id}" title="Delete type">×</button></div></div>${days.map(d=>{const cards=plan.assignments.filter(a=>a.typeId===type.id&&securityAssignmentCovers(a,d.date)).map(a=>`<button draggable="true" class="security-assignment ${a.coverageMode==='night'?'is-night':a.coverageMode==='24h'?'is-24h':''}" data-assignment="${a.id}" style="--post-color:${type.color}"><b>${esc(a.name||type.name)}</b><span>${a.guards||1} guard${Number(a.guards||1)===1?'':'s'}${a.coverageMode==='24h'?' / shift':''} · ${esc(securityCoverageLabel(a))}</span><small>${esc(a.note||'')}</small></button>`).join('');return`<div class="security-drop-cell ${securityLifecycleClass(d.kind)}" data-date="${d.date}" data-type="${type.id}">${cards}<button class="security-add-post" data-date="${d.date}" data-type="${type.id}">＋</button></div>`}).join('')}`).join('');
   const logistics=resolvedLogistics();const mapAddress=encodeURIComponent(logistics.set?.address||fullAddress());
-  wrap.innerHTML=`<section class="security-planner-shell"><header class="security-planner-top"><div><small>LOCATION BIBLE · SECURITY</small><h2>Security Planner</h2><p>${esc(locValue('location_name','Location'))}</p></div><div class="security-top-actions"><button class="ghost" id="secOrder">Generate Order</button><button class="ghost" id="secAddType">＋ Post Type</button><button class="primary" id="secSave">Save to Bible</button><button class="icon-close" id="secClose">×</button></div></header><div class="security-kpis"><div><small>POSTS</small><strong>${tot.posts}</strong></div><div><small>GUARD SHIFTS</small><strong>${tot.guards}</strong></div><div><small>GUARD HOURS</small><strong>${Math.round(tot.hours)}</strong></div><div><small>EST. COST · BUDGET RATE</small><strong>${money(tot.cost)}</strong></div></div><div class="security-planner-body"><section class="security-calendar-panel"><div class="security-filterbar"><b>Coverage Calendar</b><span>Add a guard on the first day, then drag that guard across the days you need. Background colors come from prep / hold / shoot / strike.</span><div class="security-legend">${plan.types.map(x=>`<button class="sec-toggle-legend ${visibleTypes.has(x.id)?'on':''}" data-type="${x.id}"><i style="background:${x.color}"></i>${esc(x.name)}</button>`).join('')}</div></div><div class="security-calendar-scroll"><div class="security-calendar-grid" style="--security-days:${Math.max(1,days.length)}"><div class="security-grid-corner">POST TYPE</div>${dayHeads}${rows||'<div class="security-empty">Add a post type to begin.</div>'}</div></div></section><aside class="security-map-panel"><div class="security-map-head"><div><small>WAYPOINT LAYER</small><h3>Security placement</h3></div><span>Security</span></div><div class="security-map-canvas" id="securityPlannerMap"></div><div class="security-map-help"><b>Guard posts are anchored to the map</b><span>Set or change each pin from Add/Edit Coverage.</span></div><div class="security-map-posts">${plan.assignments.map((a,i)=>{const type=plan.types.find(x=>x.id===a.typeId);return`<button data-assignment="${a.id}"><i style="background:${type?.color||'#64748b'}">${i+1}</i><span><b>${esc(a.name||type?.name||'Post')}</b><small>${esc(a.startDate||a.date||'')}${(a.endDate||a.startDate||a.date)!==(a.startDate||a.date)?` → ${esc(a.endDate)}`:''}</small></span></button>`}).join('')||'<p>No security posts placed yet.</p>'}</div><p class="security-map-note">This is the Security layer. Waypoint will use the same post records so the layer can be toggled on or off without re-entering them.</p></aside></div></section>`;
+  wrap.innerHTML=`<section class="security-planner-shell"><header class="security-planner-top"><div><small>LOCATION BIBLE · SECURITY</small><h2>Security Planner</h2><p>${esc(locValue('location_name','Location'))}</p></div><div class="security-top-actions"><button class="ghost" id="secOrder">Generate Order</button><button class="ghost" id="secAddType">＋ Post Type</button><button class="primary" id="secSave">Save to Bible</button><button class="icon-close" id="secClose">×</button></div></header><div class="security-kpis"><div><small>POSTS</small><strong>${tot.posts}</strong></div><div><small>GUARD SHIFTS</small><strong>${tot.guards}</strong></div><div><small>GUARD HOURS</small><strong>${Math.round(tot.hours)}</strong></div><div><small>EST. COST · BUDGET RATE</small><strong>${money(tot.cost)}</strong></div></div><div class="security-planner-body"><section class="security-calendar-panel"><div class="security-filterbar"><b>Coverage Calendar</b><span>Add a guard on the first day, then drag that guard across the days you need. Background colors come from prep / hold / shoot / strike.</span><div class="security-legend">${plan.types.map(x=>`<button class="sec-toggle-legend ${visibleTypes.has(x.id)?'on':''}" data-type="${x.id}"><i style="background:${x.color}"></i>${esc(x.name)}</button>`).join('')}</div></div><div class="security-calendar-scroll"><div class="security-calendar-grid" style="--security-days:${Math.max(1,days.length)}"><div class="security-grid-corner">POST TYPE</div>${dayHeads}${rows||'<div class="security-empty">Add a post type to begin.</div>'}</div></div></section><aside class="security-map-panel"><div class="security-map-head"><div><small>WAYPOINT LAYER</small><h3>Security placement</h3></div><span>Security</span></div><div class="security-map-canvas" id="securityPlannerMap"></div><div class="security-location-legend"><span class="set">★ <b>Set</b></span><span class="basecamp">B <b>Basecamp</b></span><span class="catering">C <b>Catering</b></span><span class="crew">P <b>Crew Parking</b></span><span class="guards"># <b>Guard Post</b></span></div><div class="security-map-help"><b>Guard posts are anchored to the map</b><span>Support areas come from Location Logistics. Guard pins are set from Add/Edit Coverage.</span></div><div class="security-map-posts">${plan.assignments.map((a,i)=>{const type=plan.types.find(x=>x.id===a.typeId);return`<button data-assignment="${a.id}"><i style="background:${type?.color||'#64748b'}">${i+1}</i><span><b>${esc(a.name||type?.name||'Post')}</b><small>${esc(a.startDate||a.date||'')}${(a.endDate||a.startDate||a.date)!==(a.startDate||a.date)?` → ${esc(a.endDate)}`:''}</small></span></button>`}).join('')||'<p>No security posts placed yet.</p>'}</div><p class="security-map-note">This is the Security layer. Waypoint will use the same post records so the layer can be toggled on or off without re-entering them.</p></aside></div></section>`;
   wrap.querySelector('#secClose').onclick=close;wrap.querySelector('#secSave').onclick=async()=>{await persist(true);await saveBible(true);renderPlanner()};wrap.querySelector('#secAddType').onclick=()=>openSecurityTypeEditor(plan,()=>{persist();renderPlanner()});wrap.querySelector('#secOrder').onclick=()=>openSecurityOrderPreview(plan);
   wrap.querySelectorAll('.sec-toggle-legend').forEach(b=>b.onclick=()=>{visibleTypes.has(b.dataset.type)?visibleTypes.delete(b.dataset.type):visibleTypes.add(b.dataset.type);renderPlanner()});
   wrap.querySelectorAll('.sec-delete-type').forEach(b=>b.onclick=()=>{const type=plan.types.find(x=>x.id===b.dataset.type);if(!type)return;if(plan.assignments.some(a=>a.typeId===type.id)&&!confirm(`Delete ${type.name} and its security posts?`))return;plan.assignments=plan.assignments.filter(a=>a.typeId!==type.id);plan.types=plan.types.filter(x=>x.id!==type.id);visibleTypes.delete(type.id);persist();renderPlanner()});
@@ -645,13 +645,22 @@ function securityPinIcon(L,type,index){
 function securitySetIcon(L){
  return L.divIcon({className:'security-set-icon',html:'<span aria-label="Set location">★</span>',iconSize:[38,38],iconAnchor:[19,19],popupAnchor:[0,-22]})
 }
-async function securitySetPoint(address=fullAddress()){
+function securityLogisticsIcon(L,kind){
+ const config={
+  basecamp:{label:'B',name:'Basecamp',color:'#159a93'},
+  catering:{label:'C',name:'Catering',color:'#f59e0b'},
+  crewParking:{label:'P',name:'Crew Parking',color:'#7c3aed'}
+ }[kind]||{label:'•',name:'Support',color:'#64748b'};
+ return L.divIcon({className:'security-logistics-icon',html:`<span style="--support-color:${config.color}" aria-label="${config.name}">${config.label}</span>`,iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-20]})
+}
+async function securityAddressPoint(address=fullAddress()){
  address=String(address||'').trim();if(!address)return null;
  const key='ts_security_geocode_v2_'+address.toLowerCase();
  try{const cached=JSON.parse(localStorage.getItem(key)||'null');if(cached?.lat&&cached?.lng)return[cached.lat,cached.lng]}catch{}
  try{const response=await fetch('/api/geocode?q='+encodeURIComponent(address));const row=await response.json();if(response.ok&&Number.isFinite(Number(row.lat))&&Number.isFinite(Number(row.lng))){const point=[Number(row.lat),Number(row.lng)];localStorage.setItem(key,JSON.stringify({lat:point[0],lng:point[1]}));return point}}catch{}
  return null;
 }
+async function securitySetPoint(address=fullAddress()){return securityAddressPoint(address)}
 async function mountSecurityMap(el,plan,address=fullAddress()){
  if(!el)return;try{
   const L=await loadSecurityLeaflet();if(!el.isConnected)return;
@@ -659,10 +668,24 @@ async function mountSecurityMap(el,plan,address=fullAddress()){
   const map=L.map(el,{zoomControl:true}).setView(center,17);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);
   const bounds=[];
+  const logistics=resolvedLogistics();
   const setPoint=await securitySetPoint(address);
   if(setPoint&&el.isConnected){
-    L.marker(setPoint,{icon:securitySetIcon(L),zIndexOffset:1000}).addTo(map).bindPopup(`<b>★ SET</b><br>${esc(locValue('location_name','Filming location'))}<br>${esc(address||'')}`);
+    L.marker(setPoint,{icon:securitySetIcon(L),zIndexOffset:1000}).addTo(map).bindPopup(`<b>★ SET</b><br>${esc(logistics.set?.name||locValue('location_name','Filming location'))}<br>${esc(address||'')}`);
     bounds.push(setPoint);
+  }
+  const supportPoints=[
+    ['basecamp',logistics.basecamp,'B','Basecamp'],
+    ['catering',logistics.catering,'C','Catering'],
+    ['crewParking',logistics.crewParking,'P','Crew Parking']
+  ];
+  for(const [kind,item,label,name] of supportPoints){
+    if(!item?.address)continue;
+    const point=await securityAddressPoint(item.address);
+    if(!point||!el.isConnected)continue;
+    L.marker(point,{icon:securityLogisticsIcon(L,kind),zIndexOffset:700}).addTo(map)
+      .bindPopup(`<b>${label} · ${name}</b><br>${esc(item.name||name)}<br>${esc(item.address||'')}`);
+    bounds.push(point);
   }
   (plan.assignments||[]).forEach((a,i)=>{
     if(!Number.isFinite(Number(a.mapLat))||!Number.isFinite(Number(a.mapLng)))return;
