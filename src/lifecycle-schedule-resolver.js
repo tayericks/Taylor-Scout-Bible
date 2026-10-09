@@ -18,7 +18,17 @@ function normalizeEvent(event){const s=event?.schedule||{};return {
 function phaseDates(schedule){return [...schedule.prepDates,...schedule.holdDates,...schedule.shootDates,...schedule.strikeDates]}
 function span(schedule){const starts=[schedule.prepStart,schedule.holdStart,schedule.shootStart,schedule.strikeStart,...phaseDates(schedule)].filter(Boolean).sort();const ends=[schedule.prepEnd,schedule.holdEnd,schedule.shootEnd,schedule.strikeEnd,...phaseDates(schedule)].filter(Boolean).sort();return {start:starts[0]||'',end:ends[ends.length-1]||starts[0]||''}}
 function calendarEvents(){try{const payload=JSON.parse(localStorage.getItem('taylorScoutCalendarV5')||'{}');return Array.isArray(payload?.events)?payload.events:Array.isArray(payload?.data?.events)?payload.data.events:[]}catch{return[]}}
-function resolveForDate(date){if(!date)return null;const events=calendarEvents().filter(e=>e&&e.eventType!=='note');const q=new URLSearchParams(location.search),locationId=q.get('locationId')||'',bibleId=q.get('bibleId')||'';let event=events.find(e=>(locationId&&(e.sharedLocationId===locationId||e.locationId===locationId))||(bibleId&&(e.bibleId===bibleId||e.locationBibleId===bibleId)));if(event)return normalizeEvent(event);
+function resolveForDate(date){
+  const events=calendarEvents().filter(e=>e&&e.eventType!=='note');
+  const q=new URLSearchParams(location.search);
+  const locationId=q.get('locationId')||window.__TS_ACTIVE_LOCATION_ID__||'';
+  const bibleId=q.get('bibleId')||'';
+  let event=events.find(e=>locationId&&(String(e.sharedLocationId||'')===String(locationId)||String(e.locationId||'')===String(locationId)));
+  if(!event&&bibleId)event=events.find(e=>e&&(e.bibleId===bibleId||e.locationBibleId===bibleId));
+  if(event)return normalizeEvent(event);
+  // Never switch to another location just because a clicked input contains one of its dates.
+  // Date-only fallback is allowed only when no Bible/location context exists.
+  if(locationId||bibleId||!date)return null;
   const candidates=events.map(event=>({event,schedule:normalizeEvent(event)})).filter(x=>{const range=span(x.schedule);return range.start&&range.end&&date>=range.start&&date<=range.end});
   if(candidates.length===1)return candidates[0].schedule;
   if(candidates.length>1){const exact=candidates.find(x=>phaseDates(x.schedule).includes(date)||[x.schedule.prepStart,x.schedule.prepEnd,x.schedule.holdStart,x.schedule.holdEnd,x.schedule.shootStart,x.schedule.shootEnd,x.schedule.strikeStart,x.schedule.strikeEnd].includes(date));return (exact||candidates[0]).schedule}
