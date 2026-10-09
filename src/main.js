@@ -664,9 +664,20 @@ function bind(){
  document.querySelectorAll('.bible-link[data-bible-id]').forEach(b=>b.onclick=()=>selectBible(b.dataset.bibleId));
  const editLoc=document.querySelector('#editLocation');if(editLoc)editLoc.onclick=openLocationEditor;
  const editLog=document.querySelector('#editLogistics');if(editLog)editLog.onclick=()=>openLogisticsEditor(false); const addLog=document.querySelector('#addLogisticsArea');if(addLog)addLog.onclick=()=>openLogisticsEditor(true);
- const ov=document.querySelector('#openVendorLibrary');if(ov)ov.onclick=()=>{vendorLibraryOpen=true;render()};
- const ovOrders=document.querySelector('#openVendorLibraryFromOrders');if(ovOrders)ovOrders.onclick=()=>{vendorLibraryOpen=true;render()};
- document.querySelectorAll('.open-library').forEach(b=>b.onclick=()=>{vendorLibraryOpen=true;render()});
+ const openVendorLibraryModal=(preservePlanner=false)=>{
+   vendorLibraryOpen=true;
+   const modal=document.querySelector('#vendorLibraryModal');
+   if(preservePlanner&&modal){
+     modal.classList.remove('hidden');
+     modal.classList.add('above-planner');
+     document.body.style.overflow='hidden';
+     return;
+   }
+   render();
+ };
+ const ov=document.querySelector('#openVendorLibrary');if(ov)ov.onclick=()=>openVendorLibraryModal(false);
+ const ovOrders=document.querySelector('#openVendorLibraryFromOrders');if(ovOrders)ovOrders.onclick=()=>openVendorLibraryModal(false);
+ document.querySelectorAll('.open-library').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();openVendorLibraryModal(!!b.closest('.vendor-planner-shell'))});
  const addLibraryVendor=document.querySelector('.add-library-vendor');if(addLibraryVendor)addLibraryVendor.onclick=e=>{
    e.preventDefault();
    const name=(prompt('Vendor name')||'').trim();if(!name)return;
@@ -680,7 +691,19 @@ function bind(){
    markVendorLibraryDirty();
    render();
  };
- const closeVendorLibrary=()=>{vendorLibraryOpen=false;document.body.style.overflow='';render()};
+ const closeVendorLibrary=()=>{
+   vendorLibraryOpen=false;
+   const modal=document.querySelector('#vendorLibraryModal');
+   const planner=document.querySelector('.vendor-planner-backdrop');
+   if(modal&&planner){
+     modal.classList.add('hidden');
+     modal.classList.remove('above-planner');
+     document.body.style.overflow='hidden';
+     return;
+   }
+   document.body.style.overflow='';
+   render();
+ };
  const cv=document.querySelector('#closeVendorLibrary');if(cv){cv.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()})}
  const vendorModal=document.querySelector('#vendorLibraryModal');if(vendorModal&&vendorLibraryOpen){document.body.style.overflow='hidden';vendorModal.addEventListener('click',e=>{if(e.target===vendorModal)closeVendorLibrary()})}else{document.body.style.overflow=''}
  const escapeVendorLibrary=e=>{if(e.key==='Escape'&&vendorLibraryOpen){document.removeEventListener('keydown',escapeVendorLibrary);closeVendorLibrary()}};document.addEventListener('keydown',escapeVendorLibrary,{once:false});
