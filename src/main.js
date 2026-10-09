@@ -1,4 +1,4 @@
-import{configured,getShowId,getLocationId,getSession,loadBible as loadBibleDocument,saveBibleDocument,loadBudget,saveBudgetVendorLibrary,loadCalendarDocument,loadLocations,updateLocation,subscribeBible}from'./supabase.js';
+import{configured,getShowId,getLocationId,getSession,loadBible as loadBibleDocument,saveBibleDocument,loadBudget,saveBudgetVendorLibrary,loadCalendarDocument,loadProductionSetup,loadLocations,updateLocation,subscribeBible}from'./supabase.js';
 const vendors = [
   {id:'security',category:'Site Operations',title:'Security',vendor:'Showbiz Inc',status:'ordered',summary:'24-hour, day and night coverage · Jul 30–Aug 4',contact:'Ray Barajas · 562-318-7807 · Rbarajasj@gmail.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO pending',type:'security'},
   {id:'restrooms',category:'Site Operations',title:'Restrooms',vendor:'Elite Mobile Restrooms',status:'ordered',summary:'2 × 4-room units · delivery, service and pickup scheduled',contact:'Shaunn Freire · 818-743-6226 · elitemobilerestrooms@gmail.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO 304-118',type:'restrooms'},
@@ -104,12 +104,16 @@ let bibleSaving=false;
 let bibleSaveQueued=false;
 let pendingRemoteRefresh=false;
 
-const state={filter:'all',query:'',expanded:new Set(['security']),activeCategory:'All',openEpisode:'304',logistics:null,vendorOrder:[],removedVendorIds:[],removedOrderLocations:[]};
+const state={filter:'all',query:'',expanded:new Set(['security']),activeCategory:'All',openEpisode:'',logistics:null,vendorOrder:[],removedVendorIds:[],removedOrderLocations:[]};
 const showId=getShowId();
+const queryParams=new URLSearchParams(location.search);
+let showProfile={name:queryParams.get('showName')||'Production',season:'',company:'',logo:'',units:[]};
+const bibleStoreKey=`taylorScoutBibleStoreV18:${showId||'local'}`;
+const bibleDraftKey=`taylorScoutBibleV7:${showId||'local'}`;
 let locationId=getLocationId();
 const locValue=(key,fallback='')=>sharedLocation?.[key]||fallback;
-const fullAddress=()=>[locValue('address','1773 Darling Ave'),[locValue('city','Frazier Park'),locValue('state','CA'),locValue('postal_code','93225')].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-function defaultLogistics(){const base={name:locValue('location_name','Darling Ranch'),address:fullAddress(),contact:locValue('contact_name','Karen Bryden'),phone:locValue('contact_phone','661-510-6366')};return{set:{...base,uses:'Hero Location · Work Trucks · Craft Service'},basecamp:{...base,uses:'Basecamp · VIP Parking'},crewParking:{name:'Foxtail Ranch',address:'1165 Foxtail Ranch Rd, Frazier Park, CA 93225',contact:'Arne & Deborah Haaland',phone:'818-601-2267',uses:'Prep/Wrap and film-day crew parking'},catering:{...base,uses:'Catering · Meal service'},extras:[]}}
+const fullAddress=()=>[locValue('address',''),[locValue('city',''),locValue('state',''),locValue('postal_code','')].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+function defaultLogistics(){const base={name:locValue('location_name','Location TBD'),address:fullAddress(),contact:locValue('contact_name',''),phone:locValue('contact_phone','')};return{set:{...base,uses:'Set / filming area'},basecamp:{name:'Basecamp TBD',address:'',contact:'',phone:'',uses:'Basecamp'},crewParking:{name:'Crew Parking TBD',address:'',contact:'',phone:'',uses:'Crew parking'},catering:{name:'Catering TBD',address:'',contact:'',phone:'',uses:'Catering / meal service'},extras:[]}}
 function currentLogistics(){return state.logistics||cloudPayload?.logistics||bibleStore.bibles?.[activeBibleId]?.logistics||defaultLogistics()}
 function pushUndoSnapshot(){undoStack.push({html:document.querySelector('#app')?.innerHTML||'',statuses:Object.fromEntries(vendors.map(v=>[v.id,v.status])),openEpisode:state.openEpisode});if(undoStack.length>20)undoStack.shift();updateUndoButton();}
 function updateUndoButton(){const b=document.querySelector('#undoAction');if(b)b.disabled=!undoStack.length;}
