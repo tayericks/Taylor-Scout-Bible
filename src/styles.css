@@ -615,3 +615,111 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
 }
 .budget-import-line strong{color:#10283b;white-space:nowrap}
 @media print{.show-header-title{display:none!important}}
+
+
+/* Bible sidebar readability */
+.sidebar{
+  background:#061f33!important;
+  color:#f4f8fb!important;
+}
+.side-show{
+  color:#fff!important;
+}
+.side-show small,
+.side-label{
+  color:#9fb7c8!important;
+}
+.episode-nav{
+  gap:7px!important;
+}
+.episode-group{
+  gap:5px!important;
+}
+.episode-row{
+  min-height:40px!important;
+  padding:10px 11px!important;
+  color:#e5eef4!important;
+  background:rgba(255,255,255,.035)!important;
+  border:1px solid transparent!important;
+}
+.episode-row:hover{
+  background:#123650!important;
+  border-color:#31556d!important;
+}
+.episode-row.active{
+  background:#173f59!important;
+  border-color:#3b718d!important;
+  color:#fff!important;
+}
+.episode-row span{
+  font-weight:800!important;
+}
+.episode-row b{
+  min-width:27px!important;
+  text-align:center!important;
+  background:#244b66!important;
+  color:#e9f7fb!important;
+  border:1px solid #355e78!important;
+}
+.bible-list{
+  gap:6px!important;
+  padding:1px 0 6px 10px!important;
+}
+.bible-link{
+  padding:11px 12px!important;
+  border:1px solid #31546a!important;
+  background:#0d3149!important;
+  color:#fff!important;
+  box-shadow:inset 3px 0 0 transparent!important;
+}
+.bible-link:hover{
+  background:#16415b!important;
+  border-color:#47758f!important;
+}
+.bible-link.active{
+  background:#174c67!important;
+  border-color:#49c8c2!important;
+  box-shadow:inset 4px 0 0 #49c8c2!important;
+}
+.bible-link strong{
+  color:#fff!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+.bible-link small{
+  color:#b7cad6!important;
+  font-size:10.5px!important;
+  line-height:1.25!important;
+  margin-top:2px!important;
+}
+.empty-episode{
+  color:#90a7b7!important;
+}
+.side-bottom button{
+  background:#0f3148!important;
+  color:#eef6fa!important;
+  border-color:#345970!important;
+}
+.side-bottom button:hover{
+  background:#18445e!important;
+}
+
+/* Security Planner set anchor */
+.security-set-icon{
+  background:transparent!important;
+  border:0!important;
+}
+.security-set-icon span{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#fff7d6;
+  border:3px solid #10283b;
+  box-shadow:0 3px 10px rgba(6,31,51,.32);
+  color:#e0a100;
+  font-size:24px;
+  line-height:1;
+  text-shadow:0 1px 0 #fff;
+}
