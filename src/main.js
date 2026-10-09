@@ -875,10 +875,14 @@ function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===
    const row=e.target.closest('.generic-order-row');
    if(row&&e.target.classList.contains('generic-order-item'))syncGenericOrderRow(row);
    if(row)recalculateCard(wrap);
+   if(v.id==='restrooms'&&e.target.classList.contains('order-location-select')){
+     syncOrderLocation(e.target.closest('.restroom-group'));
+     markBibleDirty();
+   }
    refresh();
    if(e.target.closest('.vendor-choice')||row)markBibleDirty();
  });
- detail.addEventListener('click',e=>{
+ detail.addEventListener('click',async e=>{
    const add=e.target.closest('.add-generic-order');
    if(add){
      e.preventDefault();
@@ -888,6 +892,40 @@ function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===
    }
    const remove=e.target.closest('.remove-generic-order');
    if(remove){e.preventDefault();remove.closest('.generic-order-row')?.remove();recalculateCard(wrap);refresh();markBibleDirty();return}
+
+   if(v.id==='restrooms'){
+     const addOrder=e.target.closest('.add-restroom-location');
+     if(addOrder){
+       e.preventDefault();pushUndoSnapshot();
+       addRestroomOrderLocation(detail.querySelector('.custom-editor[data-cost-type="restrooms"]'),addOrder);
+       preparePlannerLocations(detail);refresh();recalculateCard(wrap);return;
+     }
+     const deleteLocation=e.target.closest('.delete-order-location');
+     if(deleteLocation){
+       e.preventDefault();
+       const group=deleteLocation.closest('.restroom-group');
+       if(!group)return;
+       const locationSelect=group.querySelector('.order-location-select');
+       const name=locationSelect?.selectedOptions?.[0]?.textContent?.trim()||'this restroom unit';
+       if(!confirm(`Delete ${name}? This removes this restroom setup and its service schedule.`))return;
+       pushUndoSnapshot();
+       const key=`restrooms:${group.dataset.location||'custom'}`;
+       state.removedOrderLocations=[...new Set([...state.removedOrderLocations,key])];
+       group.remove();
+       refresh();recalculateCard(wrap);markBibleDirty();
+       await saveBible(true,true);
+       return;
+     }
+     const addUnit=e.target.closest('.add-restroom-unit');
+     if(addUnit){e.preventDefault();pushUndoSnapshot();addRestroomUnit(addUnit);refresh();recalculateCard(wrap);markBibleDirty();return}
+     const removeUnit=e.target.closest('.remove-restroom-unit');
+     if(removeUnit){e.preventDefault();pushUndoSnapshot();removeRestroomUnit(removeUnit);refresh();recalculateCard(wrap);markBibleDirty();return}
+     const addService=e.target.closest('.add-restroom-service');
+     if(addService){e.preventDefault();pushUndoSnapshot();addRestroomService(addService);refresh();recalculateCard(wrap);markBibleDirty();return}
+     const removeService=e.target.closest('.service-row .tiny');
+     if(removeService){e.preventDefault();pushUndoSnapshot();removeService.closest('.service-row')?.remove();refresh();recalculateCard(wrap);markBibleDirty();return}
+   }
+
    if(e.target.closest('.add-row,.tiny,.delete-order-location,.remove-restroom-unit'))setTimeout(()=>{refresh();recalculateCard(wrap)},0)
  });
 
@@ -1131,7 +1169,17 @@ function recalculateCard(card){if(!card)return;const panel=card.querySelector('[
 function fieldPersistenceKey(el){const card=el.closest?.('.vendor-card'),planner=el.closest?.('.vendor-planner-shell'),cardId=card?.dataset?.cardId||planner?.dataset?.vendorId||'global',group=el.closest?.('.location-order-group'),groupId=group?.dataset?.location||group?.querySelector?.('.location-pill.active')?.textContent?.trim()||'',row=el.closest?.('.security-row,.service-row,.swap-row,.repeat-row,.eq-row,.restroom-unit'),rowClass=row?[...row.classList].find(c=>/row|unit/.test(c))||'row':'',rowIndex=row&&row.parentElement?[...row.parentElement.children].filter(x=>x.classList?.contains(rowClass)).indexOf(row):-1,label=el.closest?.('label')?.querySelector?.('span')?.textContent?.trim()||el.getAttribute?.('aria-label')||el.getAttribute?.('placeholder')||'',cls=[...(el.classList||[])].filter(c=>!['active','over'].includes(c)).sort().join('.'),type=el.getAttribute?.('type')||el.tagName?.toLowerCase()||'',same=[...((el.parentElement?.querySelectorAll?.('input,select,textarea'))||[])].filter(x=>([...(x.classList||[])].sort().join('.')===cls)&&(x.getAttribute?.('type')||x.tagName?.toLowerCase())===type),localIndex=Math.max(0,same.indexOf(el));return[cardId,groupId,rowClass,rowIndex,label,cls,type,localIndex].map(x=>String(x??'').replace(/[|]/g,'/')).join('|')}
 function captureFormValues(){return[...document.querySelectorAll('input,select,textarea')].filter(el=>!el.closest('#vendorLibraryModal')).map(el=>({key:fieldPersistenceKey(el),value:el.value,checked:el.checked,type:el.type}))}
 function captureVendorEditors(){return Object.fromEntries(vendors.map(v=>{const root=document.querySelector(`.vendor-planner-shell[data-vendor-id="${v.id}"] .custom-editor`)||document.querySelector(`.vendor-card[data-card-id="${v.id}"] .custom-editor`);return[v.id,root?.innerHTML||'']}).filter(([,html])=>html))}
-function restoreVendorEditors(saved){if(!saved||typeof saved!=='object')return;Object.entries(saved).forEach(([id,html])=>{if(typeof html!=='string'||!html)return;const root=document.querySelector(`.vendor-card[data-card-id="${id}"] .custom-editor`);if(root)root.innerHTML=html})}
+function restoreVendorEditors(saved){
+ if(!saved||typeof saved!=='object')return;
+ Object.entries(saved).forEach(([id,html])=>{
+  if(typeof html!=='string'||!html)return;
+  // Legacy restroom markup was location-centric and its detached buttons lost their handlers.
+  // Keep the current unit-centric renderer instead of restoring obsolete HTML.
+  if(id==='restrooms'&&(!html.includes('Restroom Units')||html.includes('Add restroom location')))return;
+  const root=document.querySelector(`.vendor-card[data-card-id="${id}"] .custom-editor`);
+  if(root)root.innerHTML=html;
+ });
+}
 function restoreFormValues(values){if(!Array.isArray(values))return;const els=[...document.querySelectorAll('input,select,textarea')],byKey=new Map(els.map(el=>[fieldPersistenceKey(el),el]));values.forEach(x=>{const el=x.key?byKey.get(x.key):els[x.i];if(!el)return;if(x.type==='checkbox'||x.type==='radio')el.checked=!!x.checked;else el.value=x.value??''})}
 function collectBiblePayload(){
  const commitments={};
