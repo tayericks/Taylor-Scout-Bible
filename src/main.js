@@ -868,7 +868,7 @@ function syncPlannerDatesFromCalendar(detail,v){
  window.__TS_LOCATION_SCHEDULE__=sc;
  window.dispatchEvent(new CustomEvent('ts-location-schedule-ready',{detail:sc}));
 }
-function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===card.dataset.cardId);if(!v)return;if(v.id==='security'){openSecurityPlanner();return}const home=card.querySelector('.planner-home'),detail=home?.querySelector('.vendor-detail');if(!home||!detail)return;syncPlannerDatesFromCalendar(detail,v);const vendorSelect=detail.querySelector('.vendor-choice select');const plannerVendor=isOperationPlanner(v)?'':(vendorSelect?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v))v.vendor=plannerVendor;const contactLine=detail.querySelector('.contact-line b');if(contactLine)contactLine.textContent=plannerVendor;const locations=vendorPlannerLocations();const wrap=document.createElement('div');wrap.className='vendor-planner-backdrop';wrap.innerHTML=`<section class="vendor-planner-shell" data-vendor-id="${esc(v.id)}" role="dialog" aria-modal="true" aria-labelledby="vendorPlannerTitle"><header class="vendor-planner-top"><div><small>LOCATION BIBLE · ${esc(v.category.toUpperCase())}</small><h2 id="vendorPlannerTitle">${esc(v.title)} Planner</h2><p>${esc(locValue('location_name','Location'))}${isOperationPlanner(v)?' · Internal Operations':` · <span class="planner-vendor-name">${esc(plannerVendor)}</span>`}</p></div><div><button class="ghost planner-generate">Review & Email Order</button><button class="primary planner-save">Save to Bible</button><button class="icon-close planner-close" aria-label="Close">×</button></div></header><div class="vendor-planner-layout"><main class="vendor-planner-work"></main><aside class="vendor-planner-side"><section class="live-order-preview"></section><section class="planner-location-links"><small>ORDER LOCATIONS</small><div class="vendor-planner-locations">${locations.map(x=>`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.item.address||x.item.name||'')}"><b>${esc(x.label)}</b><span>${esc(x.item.name||'')}</span><small>${esc(x.item.address||'Address not entered')}</small></a>`).join('')}</div></section></aside></div></section>`;document.body.append(wrap);const work=wrap.querySelector('.vendor-planner-work');work.append(detail);refreshOrderLocationChoices(detail);preparePlannerLocations(detail);document.body.style.overflow='hidden';
+function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===card.dataset.cardId);if(!v)return;if(v.id==='security'){openSecurityPlanner();return}const home=card.querySelector('.planner-home'),detail=home?.querySelector('.vendor-detail');if(!home||!detail)return;syncPlannerDatesFromCalendar(detail,v);const vendorSelect=detail.querySelector('.vendor-choice select');const plannerVendor=isOperationPlanner(v)?'':(vendorSelect?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v))v.vendor=plannerVendor;const contactLine=detail.querySelector('.contact-line b');if(contactLine)contactLine.textContent=plannerVendor;const locations=vendorPlannerLocations();const wrap=document.createElement('div');wrap.className='vendor-planner-backdrop';wrap.innerHTML=`<section class="vendor-planner-shell" data-vendor-id="${esc(v.id)}" role="dialog" aria-modal="true" aria-labelledby="vendorPlannerTitle"><header class="vendor-planner-top"><div><small>LOCATION BIBLE · ${esc(v.category.toUpperCase())}</small><h2 id="vendorPlannerTitle">${esc(v.title)} Planner</h2><p>${esc(locValue('location_name','Location'))}${isOperationPlanner(v)?' · Internal Operations':` · <span class="planner-vendor-name">${esc(plannerVendor)}</span>`}</p></div><div><button class="ghost planner-generate">Review & Email Order</button><button class="primary planner-save">Save to Bible</button><button class="icon-close planner-close" aria-label="Close">×</button></div></header><div class="vendor-planner-layout"><main class="vendor-planner-work"></main><aside class="vendor-planner-side"><section class="live-order-preview"></section><section class="planner-location-links"><small>ORDER LOCATIONS</small><div class="vendor-planner-locations">${locations.map(x=>`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.item.address||x.item.name||'')}"><b>${esc(x.label)}</b><span>${esc(x.item.name||'')}</span><small>${esc(x.item.address||'Address not entered')}</small></a>`).join('')}</div></section></aside></div></section>`;document.body.append(wrap);const work=wrap.querySelector('.vendor-planner-work');work.append(detail);refreshOrderLocationChoices(detail);preparePlannerLocations(detail);if(v.id==='equipment')wireEquipmentPlannerControls(detail,wrap);document.body.style.overflow='hidden';
  const refresh=()=>{const previousVendor=v.vendor;const selectedVendor=isOperationPlanner(v)?'':(detail.querySelector('.vendor-choice select')?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v)){v.vendor=selectedVendor;if(previousVendor!==selectedVendor)refreshGenericOrderVendor(detail,v);const record=cloudPayload||bibleStore.bibles?.[activeBibleId];if(record){record.vendorOverrides={...(record.vendorOverrides||{}),[v.id]:selectedVendor};if(activeBibleId)bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),vendorOverrides:{...(bibleStore.bibles[activeBibleId]?.vendorOverrides||{}),[v.id]:selectedVendor}}}}const headerVendor=wrap.querySelector('.planner-vendor-name');if(headerVendor)headerVendor.textContent=selectedVendor;const contactVendor=detail.querySelector('.contact-line b');if(contactVendor)contactVendor.textContent=selectedVendor;const preview=wrap.querySelector('.live-order-preview');if(preview)preview.innerHTML=vendorPlannerPreview(detail,v)};refresh();
  detail.addEventListener('input',e=>{
    if(e.target.classList.contains('equipment-search'))filterEquipment(e.target);
@@ -935,7 +935,7 @@ function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===
        e.preventDefault();pushUndoSnapshot();
        const editor=detail.querySelector('.custom-editor[data-cost-type="equipment"]');
        addEquipmentOrderLocation(editor);
-       refreshOrderLocationChoices(detail);preparePlannerLocations(detail);refresh();recalculateCard(wrap);markBibleDirty();
+       refreshOrderLocationChoices(detail);preparePlannerLocations(detail);wireEquipmentPlannerControls(detail,wrap);refresh();recalculateCard(wrap);markBibleDirty();
        return;
      }
      const addItem=e.target.closest('.add-equipment-row');
@@ -1228,6 +1228,7 @@ function restoreVendorEditors(saved){
   // Legacy restroom markup was location-centric and its detached buttons lost their handlers.
   // Keep the current unit-centric renderer instead of restoring obsolete HTML.
   if(id==='restrooms'&&(!html.includes('Restroom Units')||html.includes('Add restroom location')))return;
+  if(id==='equipment')return;
   const root=document.querySelector(`.vendor-card[data-card-id="${id}"] .custom-editor`);
   if(root)root.innerHTML=html;
  });
@@ -1408,6 +1409,37 @@ function openEmailPreview(card){
 function addEquipmentItem(group,item){if(!group)return;const table=group.querySelector('.equipment-table');const row=document.createElement('div');row.className='eq-row';const known=equipmentKnownRate(item);row.innerHTML=`<input class="eq-item" list="equipmentInventory" value="${item||''}" placeholder="Equipment item"><select class="eq-qty">${Array.from({length:31},(_,i)=>`<option>${i}</option>`).join('')}</select><input class="eq-rate" type="number" min="0" step="0.01" value="${known}"><strong class="eq-total">$0.00</strong><button class="tiny">×</button>`;table.append(row);const itemInput=row.querySelector('.eq-item'),rateInput=row.querySelector('.eq-rate');itemInput?.addEventListener('change',()=>{const r=equipmentKnownRate(itemInput.value);if(r&&(!Number(rateInput.value)||Number(rateInput.value)===0))rateInput.value=String(r);recalculateCard(plannerScope(group))});row.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>recalculateCard(plannerScope(group))));row.querySelector('.tiny').onclick=()=>{row.remove();recalculateCard(plannerScope(group))};row.querySelector('.eq-item')?.focus()}
 function bindEquipmentGroup(group){const loc=group.querySelector('.order-location-select');if(loc)loc.onchange=()=>{syncOrderLocation(group);recalculateCard(plannerScope(group))};const add=group.querySelector('.add-equipment-row');if(add)add.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentItem(group,'')};group.querySelectorAll('.eq-row').forEach(r=>{const item=r.querySelector('.eq-item'),rate=r.querySelector('.eq-rate');item?.addEventListener('change',()=>{const known=equipmentKnownRate(item.value);if(known&&(!Number(rate.value)||Number(rate.value)===0))rate.value=String(known)})});group.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(plannerScope(group)));el.addEventListener('change',()=>recalculateCard(plannerScope(group)))});group.querySelectorAll('.tiny').forEach(btn=>btn.onclick=e=>{e.preventDefault();btn.closest('.eq-row')?.remove();recalculateCard(plannerScope(group))})}
 function addEquipmentOrderLocation(editor){if(!editor)return;const holder=document.createElement('div');holder.innerHTML=equipmentLocation('Other',`custom-${Date.now()}`,'','',[]);const group=holder.firstElementChild;editor.querySelector('.add-equipment-location')?.before(group);bindEquipmentGroup(group);addEquipmentItem(group,'')}
+function wireEquipmentPlannerControls(detail,wrap){
+ if(!detail)return;
+ const editor=detail.querySelector('.custom-editor[data-cost-type="equipment"]');
+ if(!editor)return;
+ refreshOrderLocationChoices(editor);
+ editor.querySelectorAll('.equipment-group').forEach(group=>{
+  const location=group.querySelector('.order-location-select');
+  if(location)location.onchange=e=>{e.stopPropagation();syncOrderLocation(group);recalculateCard(wrap);markBibleDirty()};
+  const add=group.querySelector('.add-equipment-row');
+  if(add)add.onclick=e=>{
+   e.preventDefault();e.stopPropagation();pushUndoSnapshot();
+   addEquipmentItem(group,'');
+   recalculateCard(wrap);markBibleDirty();
+  };
+  group.querySelectorAll('.eq-row .tiny').forEach(btn=>btn.onclick=e=>{
+   e.preventDefault();e.stopPropagation();pushUndoSnapshot();
+   btn.closest('.eq-row')?.remove();
+   recalculateCard(wrap);markBibleDirty();
+  });
+ });
+ const addLocation=editor.querySelector('.add-equipment-location');
+ if(addLocation)addLocation.onclick=e=>{
+  e.preventDefault();e.stopPropagation();pushUndoSnapshot();
+  addEquipmentOrderLocation(editor);
+  refreshOrderLocationChoices(editor);
+  preparePlannerLocations(detail);
+  wireEquipmentPlannerControls(detail,wrap);
+  recalculateCard(wrap);markBibleDirty();
+ };
+}
+
 function collectEquipmentOrders(){
  const planner=document.querySelector('.vendor-planner-shell[data-vendor-id="equipment"]');
  const root=planner||document.querySelector('.vendor-card[data-card-id="equipment"]');
@@ -1423,7 +1455,20 @@ function collectEquipmentOrders(){
   })).filter(x=>x.item||x.qty)
  }));
 }
-function restoreEquipmentOrders(orders){const editor=document.querySelector('.vendor-card[data-card-id="equipment"] .custom-editor[data-cost-type="equipment"]');if(!editor||!Array.isArray(orders)||!orders.length)return;editor.querySelectorAll('.equipment-group').forEach(g=>g.remove());const before=editor.querySelector('.add-equipment-location');orders.forEach((o,i)=>{const holder=document.createElement('div');holder.innerHTML=equipmentLocation(o.location||'Other',`saved-${i}`,o.delivery||'',o.pickup||'',(o.items||[]).map(x=>[x.item,x.qty,x.rate]));const g=holder.firstElementChild;before?.before(g);bindEquipmentGroup(g)})}
+function restoreEquipmentOrders(orders){
+ const editor=document.querySelector('.vendor-card[data-card-id="equipment"] .custom-editor[data-cost-type="equipment"]');
+ if(!editor||!Array.isArray(orders)||!orders.length)return;
+ editor.querySelectorAll('.equipment-group').forEach(g=>g.remove());
+ const before=editor.querySelector('.add-equipment-location');
+ orders.forEach((o,i)=>{
+  const holder=document.createElement('div');
+  holder.innerHTML=equipmentLocation(o.location||'Other',`saved-${i}`,o.delivery||'',o.pickup||'',(o.items||[]).map(x=>[x.item,x.qty,x.rate]));
+  const g=holder.firstElementChild;
+  before?.before(g);
+  bindEquipmentGroup(g);
+ });
+ refreshOrderLocationChoices(editor);
+}
 
 function filterEquipment(inp){const q=inp.value.toLowerCase();const list=inp.closest('.equipment-group').querySelector('.equipment-results');list.innerHTML=equipmentLibraryItems().map(x=>x.name).filter(x=>x.toLowerCase().includes(q)).slice(0,12).map(x=>`<button type="button" class="quick-equip" data-item="${esc(x)}">${esc(x)}</button>`).join('');list.querySelectorAll('button').forEach(b=>b.onclick=e=>{e.preventDefault();addEquipmentItem(inp.closest('.equipment-group'),b.dataset.item)})}
 function duplicateRelevantRow(button){const editor=button.closest('.custom-editor');if(!editor)return;const scope=button.closest('.location-order-group')||editor;const candidates=[...scope.querySelectorAll('.security-row,.service-row,.swap-row,.repeat-row,.map-lines>div')];let source=candidates[candidates.length-1];if(source){const clone=source.cloneNode(true);source.after(clone);clone.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(plannerScope(editor)));el.addEventListener('change',()=>recalculateCard(plannerScope(editor)))});return}const group=editor.querySelector('.location-order-group:last-of-type');if(group){const clone=group.cloneNode(true);group.after(clone)}}
