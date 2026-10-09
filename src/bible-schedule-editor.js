@@ -2,7 +2,7 @@ import { configured, supabase, getShowId, getLocationId, updateLocation } from '
 
 const showId=getShowId();
 const phases={prep:{label:'PREP',start:'prepStart',end:'prepEnd',dates:'prepDates',metaStart:'prep_start',metaEnd:'prep_end',metaDates:'prep_dates'},hold:{label:'HOLD',start:'holdStart',end:'holdEnd',dates:'holdDates',metaStart:'hold_start',metaEnd:'hold_end',metaDates:'hold_dates'},shoot:{label:'SHOOT',start:'shootStart',end:'shootEnd',dates:'shootDates',metaStart:'shoot_start',metaEnd:'shoot_end',metaDates:'shoot_dates'},strike:{label:'STRIKE',start:'strikeStart',end:'strikeEnd',dates:'strikeDates',metaStart:'strike_start',metaEnd:'strike_end',metaDates:'strike_dates'}};
-const currentLocationId=()=>new URLSearchParams(location.search).get('locationId')||getLocationId()||'';
+const currentLocationId=()=>{const q=new URLSearchParams(location.search),direct=q.get('locationId')||getLocationId()||window.__TS_ACTIVE_LOCATION_ID__||'';if(direct)return direct;const bibleId=q.get('bibleId')||'';return /^location-[0-9a-f-]{36}$/i.test(bibleId)?bibleId.slice(9):'';};
 const iso=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||'').slice(0,10))?String(v).slice(0,10):'';
 const daysBetween=(a,b)=>{a=iso(a);b=iso(b)||a;if(!a)return[];const out=[],start=new Date(`${a}T12:00:00`),end=new Date(`${b}T12:00:00`);for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1))out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);return out};
 
