@@ -442,8 +442,38 @@ async function securityMapCenter(plan,address=fullAddress()){
 function securityPinIcon(L,type,index){
  const color=type?.color||'#64748b';return L.divIcon({className:'security-leaflet-icon',html:`<span style="--pin-color:${color}"><b>${index+1}</b></span>`,iconSize:[34,42],iconAnchor:[17,42],popupAnchor:[0,-40]})
 }
+function securitySetIcon(L){
+ return L.divIcon({className:'security-set-icon',html:'<span aria-label="Set location">★</span>',iconSize:[38,38],iconAnchor:[19,19],popupAnchor:[0,-22]})
+}
+async function securitySetPoint(address=fullAddress()){
+ address=String(address||'').trim();if(!address)return null;
+ const key='ts_security_geocode_v2_'+address.toLowerCase();
+ try{const cached=JSON.parse(localStorage.getItem(key)||'null');if(cached?.lat&&cached?.lng)return[cached.lat,cached.lng]}catch{}
+ try{const response=await fetch('/api/geocode?q='+encodeURIComponent(address));const row=await response.json();if(response.ok&&Number.isFinite(Number(row.lat))&&Number.isFinite(Number(row.lng))){const point=[Number(row.lat),Number(row.lng)];localStorage.setItem(key,JSON.stringify({lat:point[0],lng:point[1]}));return point}}catch{}
+ return null;
+}
 async function mountSecurityMap(el,plan,address=fullAddress()){
- if(!el)return;try{const L=await loadSecurityLeaflet();if(!el.isConnected)return;const center=await securityMapCenter(plan,address);if(!el.isConnected)return;if(!center)throw new Error('Location address could not be mapped');const map=L.map(el,{zoomControl:true}).setView(center,17);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);const bounds=[];(plan.assignments||[]).forEach((a,i)=>{if(!Number.isFinite(Number(a.mapLat))||!Number.isFinite(Number(a.mapLng)))return;const point=[Number(a.mapLat),Number(a.mapLng)],type=plan.types.find(x=>x.id===a.typeId);L.marker(point,{icon:securityPinIcon(L,type,i)}).addTo(map).bindPopup(`<b>${esc(a.name||type?.name||'Security post')}</b><br>${Number(a.guards)||1} guard${Number(a.guards)===1?'':'s'}`);bounds.push(point)});if(bounds.length>1)map.fitBounds(bounds,{padding:[34,34],maxZoom:18});setTimeout(()=>map.invalidateSize(),60)}catch{el.innerHTML='<div class="security-map-unavailable">Map could not load. Reopen the planner to try again.</div>'}
+ if(!el)return;try{
+  const L=await loadSecurityLeaflet();if(!el.isConnected)return;
+  const center=await securityMapCenter(plan,address);if(!el.isConnected)return;if(!center)throw new Error('Location address could not be mapped');
+  const map=L.map(el,{zoomControl:true}).setView(center,17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);
+  const bounds=[];
+  const setPoint=await securitySetPoint(address);
+  if(setPoint&&el.isConnected){
+    L.marker(setPoint,{icon:securitySetIcon(L),zIndexOffset:1000}).addTo(map).bindPopup(`<b>★ SET</b><br>${esc(locValue('location_name','Filming location'))}<br>${esc(address||'')}`);
+    bounds.push(setPoint);
+  }
+  (plan.assignments||[]).forEach((a,i)=>{
+    if(!Number.isFinite(Number(a.mapLat))||!Number.isFinite(Number(a.mapLng)))return;
+    const point=[Number(a.mapLat),Number(a.mapLng)],type=plan.types.find(x=>x.id===a.typeId);
+    L.marker(point,{icon:securityPinIcon(L,type,i)}).addTo(map).bindPopup(`<b>${esc(a.name||type?.name||'Security post')}</b><br>${Number(a.guards)||1} guard${Number(a.guards)===1?'':'s'}`);
+    bounds.push(point)
+  });
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[34,34],maxZoom:18});
+  else if(setPoint)map.setView(setPoint,17);
+  setTimeout(()=>map.invalidateSize(),60)
+ }catch{el.innerHTML='<div class="security-map-unavailable">Map could not load. Reopen the planner to try again.</div>'}
 }
 async function mountSecurityPlacementMap(el,assignment,onChange,address=fullAddress()){
  if(!el)return;try{const L=await loadSecurityLeaflet();if(!el.isConnected)return;let point=Number.isFinite(Number(assignment.mapLat))&&Number.isFinite(Number(assignment.mapLng))?[Number(assignment.mapLat),Number(assignment.mapLng)]:await securityMapCenter({assignments:[]},address);if(!el.isConnected)return;if(!point)throw new Error('Location address could not be mapped');const map=L.map(el).setView(point,18);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'© OpenStreetMap'}).addTo(map);const type={color:'#169a9a'},marker=L.marker(point,{draggable:true,icon:securityPinIcon(L,type,0)}).addTo(map);const setPoint=latlng=>{marker.setLatLng(latlng);point=[latlng.lat,latlng.lng];onChange({lat:point[0],lng:point[1]})};marker.on('dragend',()=>setPoint(marker.getLatLng()));map.on('click',e=>setPoint(e.latlng));onChange({lat:point[0],lng:point[1]});setTimeout(()=>map.invalidateSize(),80)}catch{el.innerHTML='<div class="security-map-unavailable"><b>Address could not be mapped</b><span>Check the location address in the Bible, then reopen coverage.</span></div>'}
