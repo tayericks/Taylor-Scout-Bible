@@ -733,3 +733,89 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
   position:relative;
   z-index:14001!important;
 }
+
+
+/* Editable working orders for generic vendor planners */
+.generic-order-editor{
+  display:grid;
+  gap:16px;
+}
+.generic-budget-reference,
+.generic-working-order{
+  border:1px solid var(--ts-border);
+  border-radius:10px;
+  padding:14px;
+  background:#fff;
+}
+.generic-budget-reference h4,
+.generic-working-order h4{
+  margin:0;
+}
+.generic-budget-reference h4 small{
+  margin-left:8px;
+  font-size:8px;
+  letter-spacing:.12em;
+  color:var(--ts-muted);
+}
+.generic-order-head{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  align-items:center;
+  margin-bottom:10px;
+}
+.generic-order-head p{
+  margin:3px 0 0;
+  color:var(--ts-muted);
+  font-size:11px;
+}
+.generic-order-columns,
+.generic-order-row{
+  display:grid;
+  grid-template-columns:minmax(260px,1.7fr) minmax(180px,1fr) 72px 110px 110px 110px 38px;
+  gap:8px;
+  align-items:center;
+}
+.generic-order-columns{
+  padding:0 4px 6px;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  color:var(--ts-muted);
+}
+.generic-order-list{
+  display:grid;
+  gap:8px;
+}
+.generic-order-row{
+  padding:8px;
+  border:1px solid var(--ts-border);
+  border-radius:9px;
+  background:#f8fafb;
+}
+.generic-order-row select,
+.generic-order-row input{
+  width:100%;
+  min-width:0;
+  border:1px solid var(--ts-border);
+  border-radius:7px;
+  padding:8px 9px;
+  background:#fff;
+}
+.generic-order-row .generic-order-total{
+  text-align:right;
+  color:var(--ts-navy);
+  white-space:nowrap;
+}
+.generic-order-row .tiny{
+  width:34px;
+  height:34px;
+  padding:0;
+}
+@media(max-width:1000px){
+  .generic-order-columns{display:none}
+  .generic-order-row{grid-template-columns:1fr 1fr 72px 100px}
+  .generic-order-row .generic-order-billing,
+  .generic-order-row .generic-order-total{grid-column:auto}
+}
