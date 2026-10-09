@@ -292,6 +292,92 @@ async function bootstrapBiblesFromBudget(){
 function currentBudgetPage(){const list=Array.isArray(sharedBudget?.budgets)?sharedBudget.budgets:(Array.isArray(sharedBudget)?sharedBudget:[]);const targetId=sharedLocation?.id||locationId||'';const ep=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||'');const set=String(sharedLocation?.set_name||cloudPayload?.setName||'').trim().toLowerCase();const loc=String(sharedLocation?.location_name||cloudPayload?.locationName||'').trim().toLowerCase();return list.find(b=>targetId&&b.sharedLocationId===targetId)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&set&&String(b.setName||'').trim().toLowerCase()===set)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&loc&&String(b.location||'').trim().toLowerCase()===loc)||null}
 function calendarEventForLocation(){const events=Array.isArray(sharedCalendar?.events)?sharedCalendar.events.filter(e=>e&&e.eventType!=='note'):[],targetId=sharedLocation?.id||locationId||'',episode=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||''),norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' '),set=norm(sharedLocation?.set_name||cloudPayload?.setName||''),locationName=norm(sharedLocation?.location_name||cloudPayload?.locationName||'');return events.find(e=>targetId&&(e.sharedLocationId===targetId||e.locationId===targetId))||events.find(e=>normalizeEpisode(e.episode||'')===episode&&set&&norm(e.set)===set)||events.find(e=>normalizeEpisode(e.episode||'')===episode&&locationName&&norm(e.location)===locationName)||null}
 function scheduleForLocation(){const event=calendarEventForLocation();if(event)return{prepStart:event.prepStart||'',prepEnd:event.prepEnd||event.prepStart||'',shootStart:event.shootStart||'',shootEnd:event.shootEnd||event.shootStart||'',holdStart:event.holdStart||'',holdEnd:event.holdEnd||event.holdStart||'',strikeStart:event.strikeStart||'',strikeEnd:event.strikeEnd||event.strikeStart||''};const m=sharedLocation?.metadata?.schedule||{},b=currentBudgetPage()||{};return{prepStart:m.prep_start||b.prepStart||'',prepEnd:m.prep_end||b.prepEnd||m.prep_start||'',shootStart:m.shoot_start||b.shootStart||'',shootEnd:m.shoot_end||b.shootEnd||m.shoot_start||'',holdStart:m.hold_start||b.holdStart||'',holdEnd:m.hold_end||b.holdEnd||m.hold_start||'',strikeStart:m.strike_start||b.strikeStart||'',strikeEnd:m.strike_end||b.strikeEnd||m.strike_start||''}}
+function scheduleSignature(sc={}){
+ return ['prepStart','prepEnd','holdStart','holdEnd','shootStart','shootEnd','strikeStart','strikeEnd'].map(k=>sc[k]||'').join('|');
+}
+function calendarScheduleForRecord(record,location){
+ const events=Array.isArray(sharedCalendar?.events)?sharedCalendar.events.filter(e=>e&&e.eventType!=='note'):[];
+ const targetId=location?.id||record?.locationId||record?.location?.id||'',episode=normalizeEpisode(location?.episode_name||location?.episode_id||record?.episodeName||record?.episodeId||'');
+ const norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' ');
+ const set=norm(location?.set_name||record?.setName||''),locationName=norm(location?.location_name||record?.locationName||'');
+ const event=events.find(e=>targetId&&(String(e.sharedLocationId||'')===String(targetId)||String(e.locationId||'')===String(targetId)))
+  ||events.find(e=>normalizeEpisode(e.episode||'')===episode&&set&&norm(e.set)===set)
+  ||events.find(e=>normalizeEpisode(e.episode||'')===episode&&locationName&&norm(e.location)===locationName);
+ if(!event)return null;
+ return{prepStart:event.prepStart||'',prepEnd:event.prepEnd||event.prepStart||'',holdStart:event.holdStart||'',holdEnd:event.holdEnd||event.holdStart||'',shootStart:event.shootStart||'',shootEnd:event.shootEnd||event.shootStart||'',strikeStart:event.strikeStart||'',strikeEnd:event.strikeEnd||event.strikeStart||''};
+}
+function rebasePlannerValuesToCalendar(values=[],sc={}){
+ const dt=(date,time)=>date?date+'T'+time:'';
+ return (Array.isArray(values)?values:[]).map(item=>{
+  const key=String(item.key||'');
+  let value=item.value;
+  if(key.startsWith('restrooms|')){
+    if(key.includes('|Delivery||datetime-local|'))value=dt(sc.prepStart||sc.shootStart,'07:00');
+    else if(key.includes('|Pickup||datetime-local|'))value=dt(sc.strikeEnd||sc.shootEnd,'17:00');
+    else if(key.includes('|service-row|')&&key.includes('|datetime-local|'))value=dt(sc.shootStart||sc.prepEnd||sc.prepStart,'06:00');
+  }else if(key.startsWith('equipment|')){
+    if(key.includes('|Shared delivery||datetime-local|'))value=dt(sc.prepStart||sc.shootStart,'07:00');
+    else if(key.includes('|Shared pickup||datetime-local|'))value=dt(sc.strikeEnd||sc.shootEnd,'17:00');
+  }else if(key.startsWith('catering|')){
+    if(key.includes('|Delivery||datetime-local|'))value=dt(sc.shootStart||sc.prepEnd||sc.prepStart,'09:00');
+    else if(key.includes('|Pickup||datetime-local|'))value=dt(sc.shootEnd||sc.shootStart||sc.strikeStart,'16:00');
+  }else if(key.startsWith('cleaning|')&&key.includes('|Date||date|')){
+    value=sc.strikeEnd||sc.strikeStart||sc.shootEnd||sc.shootStart||'';
+  }else if(/^(police|parking|permits|power|support)\|/.test(key)){
+    if(key.includes('|Start||datetime-local|'))value=dt(sc.prepStart||sc.shootStart,'07:00');
+    else if(key.includes('|End||datetime-local|'))value=dt(sc.strikeEnd||sc.shootEnd,'17:00');
+  }
+  return value===item.value?item:{...item,value};
+ });
+}
+function syncSecurityPlanToCalendar(plan,sc={}){
+ if(!plan)return plan;
+ const rangeFor=name=>{
+  const n=String(name||'').toLowerCase();
+  if(n.includes('prep'))return[sc.prepStart,sc.prepEnd];
+  if(n.includes('strike')||n.includes('wrap'))return[sc.strikeStart,sc.strikeEnd];
+  if(n.includes('hold'))return[sc.holdStart,sc.holdEnd];
+  return[sc.shootStart,sc.shootEnd];
+ };
+ return{...plan,schedule:{...sc},assignments:(plan.assignments||[]).map(a=>{
+  if(!(String(a.id||'').startsWith('budget-sec-')||String(a.note||'').includes('Imported from Budget allowance')))return a;
+  const [startDate,endDate]=rangeFor(a.name);if(!startDate)return a;
+  return{...a,date:startDate,startDate,endDate:endDate||startDate};
+ }),updatedAt:new Date().toISOString()};
+}
+function syncRecordScheduleFromCalendar(record,location){
+ const sc=calendarScheduleForRecord(record,location);if(!record||!sc)return{record,changed:false};
+ const signature=scheduleSignature(sc),previous=record.calendarScheduleSignature||'';
+ if(previous===signature)return{record,changed:false};
+ const next={...record,
+  calendarSchedule:{...sc},
+  productionSchedule:{...sc},
+  schedule:{...sc},
+  calendarScheduleSignature:signature,
+  values:rebasePlannerValuesToCalendar(record.values||[],sc),
+  securityPlanner:syncSecurityPlanToCalendar(record.securityPlanner,sc),
+  equipmentOrders:(record.equipmentOrders||[]).map(order=>({...order,
+    delivery:(sc.prepStart||sc.shootStart)?(sc.prepStart||sc.shootStart)+'T07:00':'',
+    pickup:(sc.strikeEnd||sc.shootEnd)?(sc.strikeEnd||sc.shootEnd)+'T17:00':''
+  })),
+  calendarScheduleSyncedAt:new Date().toISOString()
+ };
+ return{record:next,changed:true};
+}
+async function syncAllBibleSchedulesFromCalendar(){
+ let changed=false;
+ for(const [id,record] of Object.entries(bibleStore.bibles||{})){
+  const location=sharedLocations.find(x=>String(x.id)===String(record.locationId||record.location?.id||''))||record.location||null;
+  const synced=syncRecordScheduleFromCalendar(record,location);
+  if(synced.changed){bibleStore.bibles[id]=synced.record;changed=true}
+ }
+ if(changed){
+  localStorage.setItem(bibleStoreKey,JSON.stringify(bibleStore));
+  if(configured&&showId)await saveBibleDocument(showId,bibleStore);
+ }
+ return changed;
+}
+
 function shortScheduleRange(a,b){if(!a)return'—';const f=x=>{const d=new Date(x+'T12:00:00');return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})};return b&&b!==a?`${f(a)}–${new Date(b+'T12:00:00').getDate()}`:f(a)}
 function resolvedLogistics(){const raw=currentLogistics();const fixed=['set','basecamp','crewParking','catering'];const resolving=new Set();const resolveRef=(ref)=>{if(!ref)return null;if(ref.startsWith('extra:')){const i=Number(ref.split(':')[1]);return resolveExtra(i)}return fixed.includes(ref)?resolveFixed(ref):null};const merge=(item,source)=>source?{...source,uses:item?.uses||source.uses||'',sameAs:item?.sameAs||''}:{...(item||{})};const resolveFixed=(key)=>{if(resolving.has('f:'+key))return raw[key]||{};resolving.add('f:'+key);const item=raw[key]||{};const out=merge(item,resolveRef(item.sameAs));resolving.delete('f:'+key);return out};const resolveExtra=(i)=>{if(resolving.has('e:'+i))return raw.extras?.[i]||{};resolving.add('e:'+i);const item=raw.extras?.[i]||{};const out={...merge(item,resolveRef(item.sameAs)),label:item.label||''};resolving.delete('e:'+i);return out};return{set:resolveFixed('set'),basecamp:resolveFixed('basecamp'),crewParking:resolveFixed('crewParking'),catering:resolveFixed('catering'),extras:(raw.extras||[]).map((_,i)=>resolveExtra(i))}}
 function lockedBudgetFor(v){const page=currentBudgetPage();if(!page)return 0;const keys=vendorKeywords[v.id]||[v.title.toLowerCase()];const matches=(page.items||[]).filter(i=>{const text=`${i.name||''} ${i.vendor||''}`.toLowerCase();return keys.some(k=>text.includes(k))});return matches.reduce((sum,i)=>sum+calculateBudgetItem(i),0)}
@@ -691,7 +777,7 @@ function selectBible(id){
  const params=new URLSearchParams(location.search);params.set('bibleId',id);if(locationId)params.set('locationId',locationId);history.replaceState({},'',`${location.pathname}?${params.toString()}`);
  render();
 }
-async function refreshSharedData(fromRealtime=false){if(fromRealtime&&(bibleDirty||bibleSaving)){pendingRemoteRefresh=true;return}if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget,calendar,setup]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId),loadCalendarDocument(showId),loadProductionSetup(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedCalendar=calendar?.payload||null;showProfile={name:queryParams.get('showName')||showProfile.name||'Production',season:setup?.settings?.season||'',company:setup?.settings?.production_company||'',logo:setup?.settings?.logo_url||'',units:setup?.units||[]};bibleStore=normalizeBibleStore(doc?.payload||JSON.parse(localStorage.getItem(bibleStoreKey)||'null'));syncVendorLibraryFromBudget();await bootstrapBiblesFromBudget();
+async function refreshSharedData(fromRealtime=false){if(fromRealtime&&(bibleDirty||bibleSaving)){pendingRemoteRefresh=true;return}if(!configured||!showId){cloudState=configured?'Missing show ID':'Saved locally';updateCloudStatus();return}try{const session=await getSession();if(!session){cloudState='Not signed in';updateCloudStatus();return}const[doc,locations,budget,calendar,setup]=await Promise.all([loadBibleDocument(showId),loadLocations(showId),loadBudget(showId),loadCalendarDocument(showId),loadProductionSetup(showId)]);sharedLocations=locations||[];sharedBudget=budget?.payload||null;sharedCalendar=calendar?.payload||null;showProfile={name:queryParams.get('showName')||showProfile.name||'Production',season:setup?.settings?.season||'',company:setup?.settings?.production_company||'',logo:setup?.settings?.logo_url||'',units:setup?.units||[]};bibleStore=normalizeBibleStore(doc?.payload||JSON.parse(localStorage.getItem(bibleStoreKey)||'null'));syncVendorLibraryFromBudget();await bootstrapBiblesFromBudget();await syncAllBibleSchedulesFromCalendar();
  const q=new URLSearchParams(location.search);const requestedId=q.get('bibleId');const requestedLocation=q.get('locationId')||locationId;
  activeBibleId=(requestedId&&bibleStore.bibles[requestedId]?requestedId:null)||Object.values(bibleStore.bibles).find(b=>requestedLocation&&(b.locationId===requestedLocation||b.location?.id===requestedLocation))?.id||bibleStore.activeBibleId||Object.keys(bibleStore.bibles)[0]||null;
  const record=activeBibleId?bibleStore.bibles[activeBibleId]:null;locationId=record?.locationId||requestedLocation||'';sharedLocation=(locationId?sharedLocations.find(x=>x.id===locationId):null)||record?.location||null;cloudPayload=record||null;if(record){state.openEpisode=normalizeEpisode(record.episodeName||record.episodeId||sharedLocation?.episode_name||sharedLocation?.episode_id);state.removedVendorIds=Array.isArray(record.removedVendorIds)?record.removedVendorIds:[];state.removedOrderLocations=Array.isArray(record.removedOrderLocations)?record.removedOrderLocations:[];resetVendorStatuses();Object.entries(record.statuses||{}).forEach(([id,st])=>{const v=vendors.find(x=>x.id===id);if(v)v.status=st})}else{state.openEpisode=normalizeEpisode(showProfile.units?.[0]?.name||showProfile.units?.[0]?.code||'');state.removedVendorIds=[];state.removedOrderLocations=[];resetVendorStatuses()}hydrateVendorTemplatesFromBudget(currentBudgetPage());cloudState='Connected';render();}catch(e){console.error('Bible sync failed',e);cloudState=`Sync error: ${e.message||'connection failed'}`;updateCloudStatus()}}
