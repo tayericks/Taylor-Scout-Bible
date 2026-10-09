@@ -170,6 +170,125 @@ const vendorKeywords={
  power:['generator','heating','cooling','hvac','electrician','lights','power'],
  support:['site rep','layout','holding','customer displacement','lost revenue','business impact','public control','park monitor','staging']
 };
+function budgetItemsForVendor(v,page=currentBudgetPage()){
+ const keys=vendorKeywords[v.id]||[String(v.title||'').toLowerCase()];
+ return (page?.items||[]).filter(i=>{
+  const text=`${i.name||''} ${i.vendor||''} ${i.sectionId||''}`.toLowerCase();
+  return keys.some(k=>text.includes(k));
+ });
+}
+function budgetVendorIds(page){
+ return vendors.filter(v=>budgetItemsForVendor(v,page).some(i=>calculateBudgetItem(i)>0||Number(i.units||0)>0||Number(i.days||0)>0)).map(v=>v.id);
+}
+function budgetVendorName(items=[]){
+ const named=items.find(i=>String(i.vendor||'').trim());
+ return named?.vendor||'Vendor not selected';
+}
+function hydrateVendorTemplatesFromBudget(page){
+ resetVendorTemplates();
+ if(!page)return;
+ vendors.forEach(v=>{
+  const items=budgetItemsForVendor(v,page);
+  if(!items.length)return;
+  const total=items.reduce((sum,i)=>sum+calculateBudgetItem(i),0);
+  v.vendor=budgetVendorName(items);
+  v.summary=`${items.length} budgeted item${items.length===1?'':'s'} · ${money(total)} allowance`;
+  v.status='working';v.stamp='Budget imported';v.po='No PO';
+ });
+}
+function locationForBudget(page){
+ const id=page?.sharedLocationId;
+ if(id)return sharedLocations.find(x=>String(x.id)===String(id))||null;
+ const norm=v=>String(v||'').trim().toLowerCase();
+ return sharedLocations.find(x=>normalizeEpisode(x.episode_name||x.episode_id)===normalizeEpisode(page?.episode)&&norm(x.location_name)===norm(page?.location))
+   ||sharedLocations.find(x=>normalizeEpisode(x.episode_name||x.episode_id)===normalizeEpisode(page?.episode)&&norm(x.set_name)===norm(page?.setName))
+   ||null;
+}
+function scheduleFromBudget(page={}){
+ return{
+  prepStart:page.prepStart||'',prepEnd:page.prepEnd||page.prepStart||'',
+  holdStart:page.holdStart||'',holdEnd:page.holdEnd||page.holdStart||'',
+  shootStart:page.shootStart||'',shootEnd:page.shootEnd||page.shootStart||'',
+  strikeStart:page.strikeStart||'',strikeEnd:page.strikeEnd||page.strikeStart||''
+ };
+}
+function securityPlanFromBudget(page){
+ const schedule=scheduleFromBudget(page),assignments=[];
+ const items=(page?.items||[]).filter(i=>i.sectionId==='security'||/guard|security|supervisor/i.test(String(i.name||'')));
+ const rangeFor=name=>{
+  const n=String(name||'').toLowerCase();
+  if(n.includes('prep'))return[schedule.prepStart,schedule.prepEnd];
+  if(n.includes('strike')||n.includes('wrap'))return[schedule.strikeStart,schedule.strikeEnd];
+  if(n.includes('hold'))return[schedule.holdStart,schedule.holdEnd];
+  return[schedule.shootStart,schedule.shootEnd];
+ };
+ items.forEach((item,index)=>{
+  const [startDate,endDate]=rangeFor(item.name);if(!startDate)return;
+  const guards=Math.max(1,Number(item.people||1));
+  assignments.push({
+    id:`budget-sec-${index}`,typeId:'set',date:startDate,startDate,endDate:endDate||startDate,
+    name:item.name||'Security',guards,role:/supervisor/i.test(String(item.name||''))?'Supervisor':'Guard',
+    coverageMode:'day',start:'06:00',end:'18:00',note:'Imported from Budget allowance'
+  });
+ });
+ return{version:1,types:structuredClone(SECURITY_DEFAULT_TYPES),assignments,savedViews:[{id:'all',name:'All Security',types:[]}],schedule,updatedAt:new Date().toISOString()};
+}
+function equipmentOrdersFromBudget(page){
+ const schedule=scheduleFromBudget(page);
+ const items=(page?.items||[]).filter(i=>{
+  const text=`${i.name||''} ${i.vendor||''} ${i.sectionId||''}`.toLowerCase();
+  return i.calcType==='vendor'&&(text.includes('hdr')||text.includes('equipment-rentals')||text.includes('handwashing')||text.includes('tent')||text.includes('sandbag')||text.includes('glowbug')||text.includes('trash can'));
+ }).map(i=>({
+  item:String(i.name||'Equipment').replace(/^HDR\s*[—-]\s*/i,'').trim(),
+  qty:Number(i.units||1),
+  rate:Number(i.vendorFlatRate||i.weeklyRate||i.flatAmount||0)
+ }));
+ if(!items.length)return[];
+ const delivery=(schedule.prepStart||schedule.shootStart)?`${schedule.prepStart||schedule.shootStart}T07:00`:'';
+ const pickup=(schedule.strikeEnd||schedule.shootEnd)?`${schedule.strikeEnd||schedule.shootEnd}T17:00`:'';
+ return[{location:'set',delivery,pickup,items}];
+}
+function bibleRecordFromBudget(page,location){
+ const id=`location-${location.id}`,relevant=budgetVendorIds(page);
+ const logistics={
+  set:{name:location.location_name||'Location',address:[location.address,location.city,location.state,location.postal_code].filter(Boolean).join(', '),contact:location.contact_name||'',phone:location.contact_phone||'',uses:'Set / filming area'},
+  basecamp:{name:'Basecamp TBD',address:'',contact:'',phone:'',uses:'Basecamp'},
+  crewParking:{name:'Crew Parking TBD',address:'',contact:'',phone:'',uses:'Crew parking'},
+  catering:{name:'Catering TBD',address:'',contact:'',phone:'',uses:'Catering / meal service'},
+  extras:[]
+ };
+ return{
+  version:23,bibleId:id,id,locationId:location.id,location,
+  locationName:location.location_name||page.location||'Unnamed location',
+  setName:page.setName||location.set_name||'',episodeName:page.episode||location.episode_name||location.episode_id||'',
+  createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+  statuses:Object.fromEntries(vendors.map(v=>[v.id,'working'])),
+  vendorOrder:relevant,removedVendorIds:vendors.filter(v=>!relevant.includes(v.id)).map(v=>v.id),
+  removedOrderLocations:[],logistics,values:[],commitments:{},
+  equipmentOrders:equipmentOrdersFromBudget(page),
+  securityPlanner:securityPlanFromBudget(page),
+  sourceBudgetId:page.id||'',budgetBootstrappedAt:new Date().toISOString()
+ };
+}
+async function bootstrapBiblesFromBudget(){
+ const pages=Array.isArray(sharedBudget?.budgets)?sharedBudget.budgets:[];
+ let changed=false;
+ for(const page of pages){
+  const location=locationForBudget(page);
+  if(!location)continue;
+  const existing=Object.values(bibleStore.bibles||{}).find(b=>String(b.locationId||b.location?.id||'')===String(location.id));
+  if(existing)continue;
+  const record=bibleRecordFromBudget(page,location);
+  bibleStore.bibles[record.id]=record;changed=true;
+ }
+ if(changed){
+  bibleStore.activeBibleId=bibleStore.activeBibleId||Object.keys(bibleStore.bibles)[0]||null;
+  localStorage.setItem(bibleStoreKey,JSON.stringify(bibleStore));
+  if(configured&&showId)await saveBibleDocument(showId,bibleStore);
+ }
+ return changed;
+}
+
 function currentBudgetPage(){const list=Array.isArray(sharedBudget?.budgets)?sharedBudget.budgets:(Array.isArray(sharedBudget)?sharedBudget:[]);const targetId=sharedLocation?.id||locationId||'';const ep=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||'');const set=String(sharedLocation?.set_name||cloudPayload?.setName||'').trim().toLowerCase();const loc=String(sharedLocation?.location_name||cloudPayload?.locationName||'').trim().toLowerCase();return list.find(b=>targetId&&b.sharedLocationId===targetId)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&set&&String(b.setName||'').trim().toLowerCase()===set)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&loc&&String(b.location||'').trim().toLowerCase()===loc)||null}
 function calendarEventForLocation(){const events=Array.isArray(sharedCalendar?.events)?sharedCalendar.events.filter(e=>e&&e.eventType!=='note'):[],targetId=sharedLocation?.id||locationId||'',episode=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||''),norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' '),set=norm(sharedLocation?.set_name||cloudPayload?.setName||''),locationName=norm(sharedLocation?.location_name||cloudPayload?.locationName||'');return events.find(e=>targetId&&(e.sharedLocationId===targetId||e.locationId===targetId))||events.find(e=>normalizeEpisode(e.episode||'')===episode&&set&&norm(e.set)===set)||events.find(e=>normalizeEpisode(e.episode||'')===episode&&locationName&&norm(e.location)===locationName)||null}
 function scheduleForLocation(){const event=calendarEventForLocation();if(event)return{prepStart:event.prepStart||'',prepEnd:event.prepEnd||event.prepStart||'',shootStart:event.shootStart||'',shootEnd:event.shootEnd||event.shootStart||'',holdStart:event.holdStart||'',holdEnd:event.holdEnd||event.holdStart||'',strikeStart:event.strikeStart||'',strikeEnd:event.strikeEnd||event.strikeStart||''};const m=sharedLocation?.metadata?.schedule||{},b=currentBudgetPage()||{};return{prepStart:m.prep_start||b.prepStart||'',prepEnd:m.prep_end||b.prepEnd||m.prep_start||'',shootStart:m.shoot_start||b.shootStart||'',shootEnd:m.shoot_end||b.shootEnd||m.shoot_start||'',holdStart:m.hold_start||b.holdStart||'',holdEnd:m.hold_end||b.holdEnd||m.hold_start||'',strikeStart:m.strike_start||b.strikeStart||'',strikeEnd:m.strike_end||b.strikeEnd||m.strike_start||''}}
