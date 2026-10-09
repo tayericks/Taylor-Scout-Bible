@@ -819,3 +819,49 @@ button,input,select,textarea{font-family:var(--ts-font)!important;border-radius:
   .generic-order-row .generic-order-billing,
   .generic-order-row .generic-order-total{grid-column:auto}
 }
+
+
+/* Security Planner logistics markers */
+.security-logistics-icon{
+  background:transparent!important;
+  border:0!important;
+}
+.security-logistics-icon span{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:var(--support-color);
+  color:#fff;
+  border:3px solid #fff;
+  box-shadow:0 3px 10px rgba(6,31,51,.34);
+  font-size:13px;
+  font-weight:900;
+  line-height:1;
+}
+.security-location-legend{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  padding:9px;
+  margin-top:8px;
+  border:1px solid #cddbe2;
+  border-radius:8px;
+  background:#f7fafb;
+  font-size:10px;
+}
+.security-location-legend span{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:#3c5363;
+}
+.security-location-legend span::first-letter{
+  font-weight:900;
+}
+.security-location-legend .set{color:#b77900}
+.security-location-legend .basecamp{color:#159a93}
+.security-location-legend .catering{color:#d98200}
+.security-location-legend .crew{color:#7c3aed}
+.security-location-legend .guards{color:#2f7fd3}
