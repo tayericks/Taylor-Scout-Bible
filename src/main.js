@@ -870,63 +870,109 @@ function syncPlannerDatesFromCalendar(detail,v){
 }
 function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===card.dataset.cardId);if(!v)return;if(v.id==='security'){openSecurityPlanner();return}const home=card.querySelector('.planner-home'),detail=home?.querySelector('.vendor-detail');if(!home||!detail)return;syncPlannerDatesFromCalendar(detail,v);const vendorSelect=detail.querySelector('.vendor-choice select');const plannerVendor=isOperationPlanner(v)?'':(vendorSelect?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v))v.vendor=plannerVendor;const contactLine=detail.querySelector('.contact-line b');if(contactLine)contactLine.textContent=plannerVendor;const locations=vendorPlannerLocations();const wrap=document.createElement('div');wrap.className='vendor-planner-backdrop';wrap.innerHTML=`<section class="vendor-planner-shell" data-vendor-id="${esc(v.id)}" role="dialog" aria-modal="true" aria-labelledby="vendorPlannerTitle"><header class="vendor-planner-top"><div><small>LOCATION BIBLE · ${esc(v.category.toUpperCase())}</small><h2 id="vendorPlannerTitle">${esc(v.title)} Planner</h2><p>${esc(locValue('location_name','Location'))}${isOperationPlanner(v)?' · Internal Operations':` · <span class="planner-vendor-name">${esc(plannerVendor)}</span>`}</p></div><div><button class="ghost planner-generate">Review & Email Order</button><button class="primary planner-save">Save to Bible</button><button class="icon-close planner-close" aria-label="Close">×</button></div></header><div class="vendor-planner-layout"><main class="vendor-planner-work"></main><aside class="vendor-planner-side"><section class="live-order-preview"></section><section class="planner-location-links"><small>ORDER LOCATIONS</small><div class="vendor-planner-locations">${locations.map(x=>`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.item.address||x.item.name||'')}"><b>${esc(x.label)}</b><span>${esc(x.item.name||'')}</span><small>${esc(x.item.address||'Address not entered')}</small></a>`).join('')}</div></section></aside></div></section>`;document.body.append(wrap);const work=wrap.querySelector('.vendor-planner-work');work.append(detail);refreshOrderLocationChoices(detail);preparePlannerLocations(detail);document.body.style.overflow='hidden';
  const refresh=()=>{const previousVendor=v.vendor;const selectedVendor=isOperationPlanner(v)?'':(detail.querySelector('.vendor-choice select')?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v)){v.vendor=selectedVendor;if(previousVendor!==selectedVendor)refreshGenericOrderVendor(detail,v);const record=cloudPayload||bibleStore.bibles?.[activeBibleId];if(record){record.vendorOverrides={...(record.vendorOverrides||{}),[v.id]:selectedVendor};if(activeBibleId)bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),vendorOverrides:{...(bibleStore.bibles[activeBibleId]?.vendorOverrides||{}),[v.id]:selectedVendor}}}}const headerVendor=wrap.querySelector('.planner-vendor-name');if(headerVendor)headerVendor.textContent=selectedVendor;const contactVendor=detail.querySelector('.contact-line b');if(contactVendor)contactVendor.textContent=selectedVendor;const preview=wrap.querySelector('.live-order-preview');if(preview)preview.innerHTML=vendorPlannerPreview(detail,v)};refresh();
- detail.addEventListener('input',e=>{if(e.target.closest('.generic-order-row'))recalculateCard(wrap);refresh();markBibleDirty()});
+ detail.addEventListener('input',e=>{
+   if(e.target.classList.contains('equipment-search'))filterEquipment(e.target);
+   if(e.target.closest('.generic-order-row')||e.target.closest('.eq-row')||e.target.closest('.restroom-group')||e.target.closest('.bin-group')||e.target.closest('.repeat-row'))recalculateCard(wrap);
+   refresh();markBibleDirty();
+ });
  detail.addEventListener('change',e=>{
    const row=e.target.closest('.generic-order-row');
    if(row&&e.target.classList.contains('generic-order-item'))syncGenericOrderRow(row);
    if(row)recalculateCard(wrap);
-   if(v.id==='restrooms'&&e.target.classList.contains('order-location-select')){
-     syncOrderLocation(e.target.closest('.restroom-group'));
+   if(e.target.classList.contains('order-location-select')){
+     syncOrderLocation(e.target.closest('.location-order-group,.catering-row'));
      markBibleDirty();
    }
+   if(v.id==='equipment'&&e.target.classList.contains('eq-item')){
+     const eq=e.target.closest('.eq-row'),rate=eq?.querySelector('.eq-rate'),known=equipmentKnownRate(e.target.value);
+     if(rate&&known&&(!Number(rate.value)||Number(rate.value)===0))rate.value=String(known);
+     recalculateCard(wrap);
+   }
    refresh();
-   if(e.target.closest('.vendor-choice')||row)markBibleDirty();
+   if(e.target.closest('.vendor-choice')||row||e.target.closest('.location-order-group'))markBibleDirty();
  });
  detail.addEventListener('click',async e=>{
    const add=e.target.closest('.add-generic-order');
    if(add){
      e.preventDefault();
      const list=detail.querySelector('.generic-order-list');
-     if(list){const holder=document.createElement('div');holder.innerHTML=genericOrderRow(v);list.append(holder.firstElementChild);recalculateCard(wrap);markBibleDirty()}
+     if(list){const holder=document.createElement('div');holder.innerHTML=genericOrderRow(v);list.append(holder.firstElementChild);recalculateCard(wrap);refresh();markBibleDirty()}
      return;
    }
    const remove=e.target.closest('.remove-generic-order');
    if(remove){e.preventDefault();remove.closest('.generic-order-row')?.remove();recalculateCard(wrap);refresh();markBibleDirty();return}
 
+   const deleteLocation=e.target.closest('.delete-order-location');
+   if(deleteLocation){
+     e.preventDefault();
+     const group=deleteLocation.closest('.location-order-group');
+     if(!group)return;
+     const label=group.querySelector('.order-location-select')?.selectedOptions?.[0]?.textContent?.trim()||'this order location';
+     if(!confirm(`Delete ${label}? This removes this location and its scheduled items from the order.`))return;
+     pushUndoSnapshot();
+     const key=`${v.id}:${group.dataset.location||'custom'}`;
+     state.removedOrderLocations=[...new Set([...state.removedOrderLocations,key])];
+     group.remove();
+     refresh();recalculateCard(wrap);markBibleDirty();
+     await saveBible(true,true);
+     return;
+   }
+
    if(v.id==='restrooms'){
      const addOrder=e.target.closest('.add-restroom-location');
-     if(addOrder){
-       e.preventDefault();pushUndoSnapshot();
-       addRestroomOrderLocation(detail.querySelector('.custom-editor[data-cost-type="restrooms"]'),addOrder);
-       preparePlannerLocations(detail);refresh();recalculateCard(wrap);return;
-     }
-     const deleteLocation=e.target.closest('.delete-order-location');
-     if(deleteLocation){
-       e.preventDefault();
-       const group=deleteLocation.closest('.restroom-group');
-       if(!group)return;
-       const locationSelect=group.querySelector('.order-location-select');
-       const name=locationSelect?.selectedOptions?.[0]?.textContent?.trim()||'this restroom unit';
-       if(!confirm(`Delete ${name}? This removes this restroom setup and its service schedule.`))return;
-       pushUndoSnapshot();
-       const key=`restrooms:${group.dataset.location||'custom'}`;
-       state.removedOrderLocations=[...new Set([...state.removedOrderLocations,key])];
-       group.remove();
-       refresh();recalculateCard(wrap);markBibleDirty();
-       await saveBible(true,true);
-       return;
-     }
+     if(addOrder){e.preventDefault();pushUndoSnapshot();addRestroomOrderLocation(detail.querySelector('.custom-editor[data-cost-type="restrooms"]'),addOrder);preparePlannerLocations(detail);refresh();recalculateCard(wrap);return}
      const addUnit=e.target.closest('.add-restroom-unit');
      if(addUnit){e.preventDefault();pushUndoSnapshot();addRestroomUnit(addUnit);refresh();recalculateCard(wrap);markBibleDirty();return}
      const removeUnit=e.target.closest('.remove-restroom-unit');
      if(removeUnit){e.preventDefault();pushUndoSnapshot();removeRestroomUnit(removeUnit);refresh();recalculateCard(wrap);markBibleDirty();return}
      const addService=e.target.closest('.add-restroom-service');
      if(addService){e.preventDefault();pushUndoSnapshot();addRestroomService(addService);refresh();recalculateCard(wrap);markBibleDirty();return}
-     const removeService=e.target.closest('.service-row .tiny');
-     if(removeService){e.preventDefault();pushUndoSnapshot();removeService.closest('.service-row')?.remove();refresh();recalculateCard(wrap);markBibleDirty();return}
    }
 
-   if(e.target.closest('.add-row,.tiny,.delete-order-location,.remove-restroom-unit'))setTimeout(()=>{refresh();recalculateCard(wrap)},0)
+   if(v.id==='equipment'){
+     const addLocation=e.target.closest('.add-equipment-location');
+     if(addLocation){
+       e.preventDefault();pushUndoSnapshot();
+       const editor=detail.querySelector('.custom-editor[data-cost-type="equipment"]');
+       addEquipmentOrderLocation(editor);
+       refreshOrderLocationChoices(detail);preparePlannerLocations(detail);refresh();recalculateCard(wrap);markBibleDirty();
+       return;
+     }
+     const addItem=e.target.closest('.add-equipment-row');
+     if(addItem){e.preventDefault();pushUndoSnapshot();addEquipmentItem(addItem.closest('.equipment-group'),'');refresh();recalculateCard(wrap);markBibleDirty();return}
+     const removeItem=e.target.closest('.eq-row .tiny');
+     if(removeItem){e.preventDefault();pushUndoSnapshot();removeItem.closest('.eq-row')?.remove();refresh();recalculateCard(wrap);markBibleDirty();return}
+   }
+
+   if(v.id==='bins'){
+     const addLocation=e.target.closest('.add-bin-location');
+     if(addLocation){
+       e.preventDefault();pushUndoSnapshot();
+       const editor=detail.querySelector('.custom-editor[data-cost-type="bins"]');
+       addBinLocation(editor,addLocation);
+       refreshOrderLocationChoices(detail);preparePlannerLocations(detail);refresh();recalculateCard(wrap);markBibleDirty();
+       return;
+     }
+     const addSwap=e.target.closest('.add-bin-swap');
+     if(addSwap){e.preventDefault();pushUndoSnapshot();addBinSwap(addSwap);refresh();recalculateCard(wrap);markBibleDirty();return}
+   }
+
+   const quick=e.target.closest('.quick-equip');
+   if(quick){e.preventDefault();addEquipmentItem(quick.closest('.equipment-group'),quick.dataset.item);refresh();recalculateCard(wrap);markBibleDirty();return}
+
+   const tiny=e.target.closest('.tiny');
+   if(tiny){
+     const row=tiny.closest('.service-row,.swap-row,.eq-row,.repeat-row');
+     if(row){e.preventDefault();pushUndoSnapshot();row.remove();refresh();recalculateCard(wrap);markBibleDirty();return}
+   }
+
+   const genericAddRow=e.target.closest('.add-row');
+   if(genericAddRow){
+     e.preventDefault();pushUndoSnapshot();
+     duplicateRelevantRow(genericAddRow);
+     refresh();recalculateCard(wrap);markBibleDirty();
+     return;
+   }
  });
 
  wrap.querySelectorAll('.status-toggle [data-status]').forEach(btn=>btn.onclick=async e=>{
@@ -1085,16 +1131,22 @@ function bind(){
  restoreValues();
 }
 
+function plannerScope(node){return node?.closest?.('.vendor-card,.vendor-planner-shell')||null}
 function wireDynamicOrderRow(row){
- const card=row.closest('.vendor-card');row.querySelectorAll('input,select,textarea').forEach(el=>{el.addEventListener('input',()=>{recalculateCard(card);markBibleDirty()});el.addEventListener('change',()=>{recalculateCard(card);markBibleDirty()})});
- const remove=row.querySelector('.tiny');if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();row.remove();recalculateCard(card);markBibleDirty()}
+ const scope=plannerScope(row);
+ row.querySelectorAll('input,select,textarea').forEach(el=>{
+  el.addEventListener('input',()=>{recalculateCard(scope);markBibleDirty()});
+  el.addEventListener('change',()=>{recalculateCard(scope);markBibleDirty()});
+ });
+ const remove=row.querySelector('.tiny');
+ if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();row.remove();recalculateCard(scope);markBibleDirty()};
  markBibleDirty();
 }
 function addBinSwap(button){
- const list=button.closest('.swap-list');if(!list)return;const row=document.createElement('div');row.className='swap-row';row.innerHTML='<select><option>Swap</option><option>Extra Service</option></select><input type="datetime-local"><input placeholder="Notes"><button class="tiny" type="button">×</button>';button.before(row);wireDynamicOrderRow(row);row.querySelector('input[type=datetime-local]')?.focus();recalculateCard(button.closest('.vendor-card'))
+ const list=button.closest('.swap-list');if(!list)return;const row=document.createElement('div');row.className='swap-row';row.innerHTML='<select><option>Swap</option><option>Extra Service</option></select><input type="datetime-local"><input placeholder="Notes"><button class="tiny" type="button">×</button>';button.before(row);wireDynamicOrderRow(row);row.querySelector('input[type=datetime-local]')?.focus();recalculateCard(plannerScope(button))
 }
 function addBinLocation(editor,button){
- if(!editor||!button)return;const holder=document.createElement('div');holder.innerHTML=binLocation('New Bin Location',`custom-${Date.now()}`,0,0,0,0,'','');const group=holder.firstElementChild;button.before(group);group.querySelector('.add-bin-swap').onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinSwap(e.currentTarget)};group.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(editor.closest('.vendor-card')));el.addEventListener('change',()=>recalculateCard(editor.closest('.vendor-card')))});group.querySelector('.location-group-head input')?.select();recalculateCard(editor.closest('.vendor-card'))
+ if(!editor||!button)return;const holder=document.createElement('div');holder.innerHTML=binLocation('New Bin Location',`custom-${Date.now()}`,0,0,0,0,'','');const group=holder.firstElementChild;button.before(group);group.querySelector('.add-bin-swap').onclick=e=>{e.preventDefault();pushUndoSnapshot();addBinSwap(e.currentTarget)};group.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(plannerScope(editor)));el.addEventListener('change',()=>recalculateCard(plannerScope(editor)))});group.querySelector('.location-group-head input')?.select();recalculateCard(plannerScope(editor))
 }
 function addRestroomOrderLocation(editor,button){
  if(!editor||!button)return;
@@ -1124,31 +1176,31 @@ function addRestroomOrderLocation(editor,button){
   };
  }
  group.querySelectorAll('input,select').forEach(el=>{
-  el.addEventListener('input',()=>{recalculateCard(editor.closest('.vendor-card'));markBibleDirty()});
+  el.addEventListener('input',()=>{recalculateCard(plannerScope(editor));markBibleDirty()});
   el.addEventListener('change',()=>{
    if(el.classList.contains('order-location-select'))syncOrderLocation(group);
-   recalculateCard(editor.closest('.vendor-card'));
+   recalculateCard(plannerScope(editor));
    markBibleDirty();
   });
  });
  group.querySelector('.add-restroom-service').onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomService(e.currentTarget)};
  group.querySelector('.add-restroom-unit').onclick=e=>{e.preventDefault();pushUndoSnapshot();addRestroomUnit(e.currentTarget)};
- recalculateCard(editor.closest('.vendor-card'));
+ recalculateCard(plannerScope(editor));
  markBibleDirty();
  setTimeout(()=>group.querySelector('.restroom-unit select:nth-of-type(2)')?.focus(),0);
 }
 
 function addRestroomService(button){
- const group=button.closest('.restroom-group'),schedule=button.closest('.service-schedule');if(!group||!schedule)return;const units=[...group.querySelectorAll('.restroom-unit')];const row=document.createElement('div');row.className='service-row';row.innerHTML=`<input type="datetime-local"><div class="service-units"><span>Service:</span>${units.map((u,i)=>`<label><input type="checkbox" checked data-service-unit="${group.dataset.location}-${i}"> Unit ${i+1}</label>`).join('')}<label><input type="checkbox" class="service-all" checked> All</label></div><button class="tiny" type="button">×</button>`;button.before(row);const all=row.querySelector('.service-all');all.onchange=e=>row.querySelectorAll('.service-units input:not(.service-all)').forEach(c=>c.checked=e.target.checked);wireDynamicOrderRow(row);row.querySelector('input[type=datetime-local]')?.focus();recalculateCard(group.closest('.vendor-card'))
+ const group=button.closest('.restroom-group'),schedule=button.closest('.service-schedule');if(!group||!schedule)return;const units=[...group.querySelectorAll('.restroom-unit')];const row=document.createElement('div');row.className='service-row';row.innerHTML=`<input type="datetime-local"><div class="service-units"><span>Service:</span>${units.map((u,i)=>`<label><input type="checkbox" checked data-service-unit="${group.dataset.location}-${i}"> Unit ${i+1}</label>`).join('')}<label><input type="checkbox" class="service-all" checked> All</label></div><button class="tiny" type="button">×</button>`;button.before(row);const all=row.querySelector('.service-all');all.onchange=e=>row.querySelectorAll('.service-units input:not(.service-all)').forEach(c=>c.checked=e.target.checked);wireDynamicOrderRow(row);row.querySelector('input[type=datetime-local]')?.focus();recalculateCard(plannerScope(group))
 }
 function addRestroomUnit(button){
- const group=button.closest('.restroom-group'),list=group?.querySelector('.restroom-units');if(!group||!list)return;const index=list.querySelectorAll('.restroom-unit').length,id=`${group.dataset.location}-${Date.now()}`,row=document.createElement('div');row.className='restroom-unit';row.dataset.unit=id;row.innerHTML=`<label class="field"><span>Qty</span><select><option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label><label class="field"><span>Unit type</span><select><option>4-room</option><option>2-room</option><option>Single</option><option>ADA</option><option>Luxury trailer</option><option>Custom</option></select></label><label class="unit-label"><input type="checkbox" checked> Unit ${index+1}</label><button class="tiny remove-restroom-unit" type="button" aria-label="Remove Unit ${index+1}" title="Remove unit">×</button>`;list.append(row);group.querySelectorAll('.service-units').forEach(box=>{const all=box.querySelector('label:last-child');const label=document.createElement('label');label.innerHTML=`<input type="checkbox" checked data-service-unit="${id}"> Unit ${index+1}`;box.insertBefore(label,all)});wireDynamicOrderRow(row);const remove=row.querySelector('.remove-restroom-unit');if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();removeRestroomUnit(remove)};recalculateCard(group.closest('.vendor-card'))
+ const group=button.closest('.restroom-group'),list=group?.querySelector('.restroom-units');if(!group||!list)return;const index=list.querySelectorAll('.restroom-unit').length,id=`${group.dataset.location}-${Date.now()}`,row=document.createElement('div');row.className='restroom-unit';row.dataset.unit=id;row.innerHTML=`<label class="field"><span>Qty</span><select><option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label><label class="field"><span>Unit type</span><select><option>4-room</option><option>2-room</option><option>Single</option><option>ADA</option><option>Luxury trailer</option><option>Custom</option></select></label><label class="unit-label"><input type="checkbox" checked> Unit ${index+1}</label><button class="tiny remove-restroom-unit" type="button" aria-label="Remove Unit ${index+1}" title="Remove unit">×</button>`;list.append(row);group.querySelectorAll('.service-units').forEach(box=>{const all=box.querySelector('label:last-child');const label=document.createElement('label');label.innerHTML=`<input type="checkbox" checked data-service-unit="${id}"> Unit ${index+1}`;box.insertBefore(label,all)});wireDynamicOrderRow(row);const remove=row.querySelector('.remove-restroom-unit');if(remove)remove.onclick=e=>{e.preventDefault();pushUndoSnapshot();removeRestroomUnit(remove)};recalculateCard(plannerScope(group))
 }
 function removeRestroomUnit(button){
  const group=button.closest('.restroom-group'),row=button.closest('.restroom-unit');if(!group||!row)return;const units=[...group.querySelectorAll('.restroom-unit')],index=units.indexOf(row);if(index<0)return;
  group.querySelectorAll('.service-units').forEach(box=>{const labels=[...box.querySelectorAll('label')].filter(label=>!label.querySelector('.service-all'));labels[index]?.remove()});row.remove();
  [...group.querySelectorAll('.restroom-unit')].forEach((unit,i)=>{const label=unit.querySelector('.unit-label'),input=label?.querySelector('input'),remove=unit.querySelector('.remove-restroom-unit');if(label&&input){label.replaceChildren(input,document.createTextNode(` Unit ${i+1}`))}if(remove){remove.setAttribute('aria-label',`Remove Unit ${i+1}`);remove.title='Remove unit'}});
- group.querySelectorAll('.service-units').forEach(box=>{[...box.querySelectorAll('label')].filter(label=>!label.querySelector('.service-all')).forEach((label,i)=>{const input=label.querySelector('input');if(input){input.dataset.serviceUnit=`${group.dataset.location}-${i}`;label.replaceChildren(input,document.createTextNode(` Unit ${i+1}`))}})});recalculateCard(group.closest('.vendor-card'))
+ group.querySelectorAll('.service-units').forEach(box=>{[...box.querySelectorAll('label')].filter(label=>!label.querySelector('.service-all')).forEach((label,i)=>{const input=label.querySelector('input');if(input){input.dataset.serviceUnit=`${group.dataset.location}-${i}`;label.replaceChildren(input,document.createTextNode(` Unit ${i+1}`))}})});recalculateCard(plannerScope(group))
 }
 function hoursBetween(a,b){const s=new Date(a),e=new Date(b);return isFinite(s)&&isFinite(e)?Math.max(0,(e-s)/36e5):0}
 function recalculateCard(card){if(!card)return;const panel=card.querySelector('[data-budget-card]');if(!panel)return;const id=panel.dataset.budgetCard;let total=0;
@@ -1353,14 +1405,28 @@ function openEmailPreview(card){
  const clean=x=>String(x||'').replace(/[^A-Za-z0-9]+/g,' ').trim().replace(/\s+/g,'_');const subjectText=[clean(showName),episode&&clean(episode),clean(locationName),clean(vendorName)].filter(Boolean).join('_');
  const subject=encodeURIComponent(subjectText),body=encodeURIComponent(text);
  const w=window.open('','_blank','width=820,height=760');w.document.write(`<title>Email Preview</title><style>body{font:16px Arial;padding:32px;color:#13283b;background:#f4f7f8}main{max-width:760px;margin:auto;background:#fff;padding:28px;border-radius:14px}textarea{width:100%;height:470px;padding:16px;box-sizing:border-box;line-height:1.45}button,a{display:inline-block;padding:11px 16px;margin:10px 8px 0 0;border-radius:8px;border:1px solid #bfd0d8;background:#fff;color:#13283b;text-decoration:none;font-weight:700}.primary{background:#24a7b8;color:#fff;border-color:#24a7b8}</style><main><h2>${title}</h2><p><b>Subject:</b> ${subjectText}</p><textarea>${text.replace(/</g,'&lt;')}</textarea><br><button onclick="navigator.clipboard.writeText(document.querySelector('textarea').value)">Copy Email</button><a class="primary" href="mailto:?subject=${subject}&body=${body}">Open Mail App</a></main>`)}
-function addEquipmentItem(group,item){if(!group)return;const table=group.querySelector('.equipment-table');const row=document.createElement('div');row.className='eq-row';const known=equipmentKnownRate(item);row.innerHTML=`<input class="eq-item" list="equipmentInventory" value="${item||''}" placeholder="Equipment item"><select class="eq-qty">${Array.from({length:31},(_,i)=>`<option>${i}</option>`).join('')}</select><input class="eq-rate" type="number" min="0" step="0.01" value="${known}"><strong class="eq-total">$0.00</strong><button class="tiny">×</button>`;table.append(row);const itemInput=row.querySelector('.eq-item'),rateInput=row.querySelector('.eq-rate');itemInput?.addEventListener('change',()=>{const r=equipmentKnownRate(itemInput.value);if(r&&(!Number(rateInput.value)||Number(rateInput.value)===0))rateInput.value=String(r);recalculateCard(group.closest('.vendor-card'))});row.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>recalculateCard(group.closest('.vendor-card'))));row.querySelector('.tiny').onclick=()=>{row.remove();recalculateCard(group.closest('.vendor-card'))};row.querySelector('.eq-item')?.focus()}
-function bindEquipmentGroup(group){const loc=group.querySelector('.order-location-select');if(loc)loc.onchange=()=>{syncOrderLocation(group);recalculateCard(group.closest('.vendor-card'))};const add=group.querySelector('.add-equipment-row');if(add)add.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentItem(group,'')};group.querySelectorAll('.eq-row').forEach(r=>{const item=r.querySelector('.eq-item'),rate=r.querySelector('.eq-rate');item?.addEventListener('change',()=>{const known=equipmentKnownRate(item.value);if(known&&(!Number(rate.value)||Number(rate.value)===0))rate.value=String(known)})});group.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(group.closest('.vendor-card')));el.addEventListener('change',()=>recalculateCard(group.closest('.vendor-card')))});group.querySelectorAll('.tiny').forEach(btn=>btn.onclick=e=>{e.preventDefault();btn.closest('.eq-row')?.remove();recalculateCard(group.closest('.vendor-card'))})}
+function addEquipmentItem(group,item){if(!group)return;const table=group.querySelector('.equipment-table');const row=document.createElement('div');row.className='eq-row';const known=equipmentKnownRate(item);row.innerHTML=`<input class="eq-item" list="equipmentInventory" value="${item||''}" placeholder="Equipment item"><select class="eq-qty">${Array.from({length:31},(_,i)=>`<option>${i}</option>`).join('')}</select><input class="eq-rate" type="number" min="0" step="0.01" value="${known}"><strong class="eq-total">$0.00</strong><button class="tiny">×</button>`;table.append(row);const itemInput=row.querySelector('.eq-item'),rateInput=row.querySelector('.eq-rate');itemInput?.addEventListener('change',()=>{const r=equipmentKnownRate(itemInput.value);if(r&&(!Number(rateInput.value)||Number(rateInput.value)===0))rateInput.value=String(r);recalculateCard(plannerScope(group))});row.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>recalculateCard(plannerScope(group))));row.querySelector('.tiny').onclick=()=>{row.remove();recalculateCard(plannerScope(group))};row.querySelector('.eq-item')?.focus()}
+function bindEquipmentGroup(group){const loc=group.querySelector('.order-location-select');if(loc)loc.onchange=()=>{syncOrderLocation(group);recalculateCard(plannerScope(group))};const add=group.querySelector('.add-equipment-row');if(add)add.onclick=e=>{e.preventDefault();pushUndoSnapshot();addEquipmentItem(group,'')};group.querySelectorAll('.eq-row').forEach(r=>{const item=r.querySelector('.eq-item'),rate=r.querySelector('.eq-rate');item?.addEventListener('change',()=>{const known=equipmentKnownRate(item.value);if(known&&(!Number(rate.value)||Number(rate.value)===0))rate.value=String(known)})});group.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(plannerScope(group)));el.addEventListener('change',()=>recalculateCard(plannerScope(group)))});group.querySelectorAll('.tiny').forEach(btn=>btn.onclick=e=>{e.preventDefault();btn.closest('.eq-row')?.remove();recalculateCard(plannerScope(group))})}
 function addEquipmentOrderLocation(editor){if(!editor)return;const holder=document.createElement('div');holder.innerHTML=equipmentLocation('Other',`custom-${Date.now()}`,'','',[]);const group=holder.firstElementChild;editor.querySelector('.add-equipment-location')?.before(group);bindEquipmentGroup(group);addEquipmentItem(group,'')}
-function collectEquipmentOrders(){return [...document.querySelectorAll('.vendor-card[data-card-id="equipment"] .equipment-group')].map(g=>({location:g.querySelector('.order-location-select')?.value||g.dataset.location||'set',delivery:g.querySelectorAll('.location-group-head input[type=datetime-local]')[0]?.value||'',pickup:g.querySelectorAll('.location-group-head input[type=datetime-local]')[1]?.value||'',items:[...g.querySelectorAll('.eq-row')].map(r=>({item:r.querySelector('.eq-item')?.value||'',qty:Number(r.querySelector('.eq-qty')?.value||0),rate:Number(r.querySelector('.eq-rate')?.value||0)})).filter(x=>x.item||x.qty)}))}
+function collectEquipmentOrders(){
+ const planner=document.querySelector('.vendor-planner-shell[data-vendor-id="equipment"]');
+ const root=planner||document.querySelector('.vendor-card[data-card-id="equipment"]');
+ if(!root)return[];
+ return [...root.querySelectorAll('.equipment-group')].map(g=>({
+  location:g.querySelector('.order-location-select')?.value||g.dataset.location||'set',
+  delivery:g.querySelectorAll('.location-group-head input[type=datetime-local]')[0]?.value||'',
+  pickup:g.querySelectorAll('.location-group-head input[type=datetime-local]')[1]?.value||'',
+  items:[...g.querySelectorAll('.eq-row')].map(r=>({
+   item:r.querySelector('.eq-item')?.value||'',
+   qty:Number(r.querySelector('.eq-qty')?.value||0),
+   rate:Number(r.querySelector('.eq-rate')?.value||0)
+  })).filter(x=>x.item||x.qty)
+ }));
+}
 function restoreEquipmentOrders(orders){const editor=document.querySelector('.vendor-card[data-card-id="equipment"] .custom-editor[data-cost-type="equipment"]');if(!editor||!Array.isArray(orders)||!orders.length)return;editor.querySelectorAll('.equipment-group').forEach(g=>g.remove());const before=editor.querySelector('.add-equipment-location');orders.forEach((o,i)=>{const holder=document.createElement('div');holder.innerHTML=equipmentLocation(o.location||'Other',`saved-${i}`,o.delivery||'',o.pickup||'',(o.items||[]).map(x=>[x.item,x.qty,x.rate]));const g=holder.firstElementChild;before?.before(g);bindEquipmentGroup(g)})}
 
 function filterEquipment(inp){const q=inp.value.toLowerCase();const list=inp.closest('.equipment-group').querySelector('.equipment-results');list.innerHTML=equipmentLibraryItems().map(x=>x.name).filter(x=>x.toLowerCase().includes(q)).slice(0,12).map(x=>`<button type="button" class="quick-equip" data-item="${esc(x)}">${esc(x)}</button>`).join('');list.querySelectorAll('button').forEach(b=>b.onclick=e=>{e.preventDefault();addEquipmentItem(inp.closest('.equipment-group'),b.dataset.item)})}
-function duplicateRelevantRow(button){const editor=button.closest('.custom-editor');if(!editor)return;const scope=button.closest('.location-order-group')||editor;const candidates=[...scope.querySelectorAll('.security-row,.service-row,.swap-row,.repeat-row,.map-lines>div')];let source=candidates[candidates.length-1];if(source){const clone=source.cloneNode(true);source.after(clone);clone.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(editor.closest('.vendor-card')));el.addEventListener('change',()=>recalculateCard(editor.closest('.vendor-card')))});return}const group=editor.querySelector('.location-order-group:last-of-type');if(group){const clone=group.cloneNode(true);group.after(clone)}}
+function duplicateRelevantRow(button){const editor=button.closest('.custom-editor');if(!editor)return;const scope=button.closest('.location-order-group')||editor;const candidates=[...scope.querySelectorAll('.security-row,.service-row,.swap-row,.repeat-row,.map-lines>div')];let source=candidates[candidates.length-1];if(source){const clone=source.cloneNode(true);source.after(clone);clone.querySelectorAll('input,select').forEach(el=>{el.addEventListener('input',()=>recalculateCard(plannerScope(editor)));el.addEventListener('change',()=>recalculateCard(plannerScope(editor)))});return}const group=editor.querySelector('.location-order-group:last-of-type');if(group){const clone=group.cloneNode(true);group.after(clone)}}
 
 render();
 initShared().then(()=>{const params=new URLSearchParams(location.search);if(params.get('securityMap')==='1'){openVendorSecurityMap();params.delete('securityMap');const qs=params.toString();history.replaceState({},'',location.pathname+(qs?'?'+qs:''));}});
