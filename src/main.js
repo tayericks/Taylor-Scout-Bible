@@ -83,7 +83,32 @@ function budgetVendorsFromLibrary(library){return Object.entries(library||{}).fl
 function syncVendorLibraryFromBudget(){if(Array.isArray(sharedBudget?.vendors))bibleStore.vendorLibraryItems=vendorLibraryFromBudget(sharedBudget.vendors)}
 function ensureVendorLibraryItems(){
  if(!bibleStore.vendorLibraryItems||typeof bibleStore.vendorLibraryItems!=='object')bibleStore.vendorLibraryItems=defaultVendorLibraryItems();
- return bibleStore.vendorLibraryItems;
+ const library=bibleStore.vendorLibraryItems;
+ const seed=(vendor,items)=>{
+   if(!Array.isArray(library[vendor]))library[vendor]=[];
+   const existing=new Set(library[vendor].map(x=>String(x.name||'').trim().toLowerCase()));
+   items.forEach(item=>{if(!existing.has(item.name.toLowerCase()))library[vendor].push(item)});
+ };
+ seed('American Tents',[
+   {id:'american-tents-20x20-daily',name:'20×20 Tent — Daily',rate:2179,billing:'flat'},
+   {id:'american-tents-20x20-weekly',name:'20×20 Tent — Weekly',rate:2469,billing:'flat'},
+   {id:'american-tents-20x20-monthly',name:'20×20 Tent — Monthly',rate:4746,billing:'flat'},
+   {id:'american-tents-20x40-daily',name:'20×40 Tent — Daily',rate:2698.13,billing:'flat'},
+   {id:'american-tents-20x40-weekly',name:'20×40 Tent — Weekly',rate:3290.55,billing:'flat'},
+   {id:'american-tents-20x40-monthly',name:'20×40 Tent — Monthly',rate:7019.07,billing:'flat'},
+   {id:'american-tents-20x60-daily',name:'20×60 Tent — Daily',rate:3227.25,billing:'flat'},
+   {id:'american-tents-20x60-weekly',name:'20×60 Tent — Weekly',rate:4165.08,billing:'flat'},
+   {id:'american-tents-20x60-monthly',name:'20×60 Tent — Monthly',rate:8994.21,billing:'flat'}
+ ]);
+ seed('Lunchbox Transportation, LLC',[
+   {id:'lunchbox-large-daily',name:'Large Lunchbox — Daily',rate:1450,billing:'flat'},
+   {id:'lunchbox-small-daily',name:'Small Lunchbox — Daily',rate:1150,billing:'flat'},
+   {id:'lunchbox-fuel',name:'Fuel',rate:150,billing:'flat'},
+   {id:'lunchbox-large-delivery',name:'Large Lunchbox Delivery',rate:477,billing:'flat'},
+   {id:'lunchbox-large-pickup',name:'Large Lunchbox Pickup',rate:477,billing:'flat'},
+   {id:'lunchbox-small-delivery-pickup',name:'Small Lunchbox Delivery / Pickup',rate:784,billing:'flat'}
+ ]);
+ return library;
 }
 function vendorItemsFor(name){const library=ensureVendorLibraryItems();if(!Array.isArray(library[name]))library[name]=[];return library[name]}
 let vendorLibrarySaveTimer=null;
@@ -407,9 +432,9 @@ function budgetEditor(v){
  </section>`;
 }
 function vendorOptionsFor(v){
- const map={security:'Security',restrooms:'Toilets',cleaning:'Cleaning',bins:'Trash',equipment:'Equipment',catering:'Catering Trailer',snake:'Snake Wrangling',maps:'Map Services'};
- const key=map[v.id];
- return fullVendorCatalog().filter(x=>x.category.includes(key||v.title)).map(x=>x.name);
+ const map={security:['Security'],restrooms:['Toilets'],cleaning:['Cleaning'],bins:['Trash'],equipment:['Equipment'],catering:['Catering Trailer','Tents / Tables / Chairs'],snake:['Snake Wrangling'],maps:['Map Services']};
+ const keys=map[v.id]||[v.title];
+ return fullVendorCatalog().filter(x=>keys.some(key=>x.category.includes(key))).map(x=>x.name);
 }
 function vendorLibrary(){
  const library=ensureVendorLibraryItems();
@@ -449,14 +474,17 @@ function genericOrderRow(v,itemName='',qty=1,rate=null,billing='flat'){
 function refreshGenericOrderVendor(detail,v){
  const list=detail?.querySelector('.generic-order-list');if(!list)return;
  const rows=[...list.querySelectorAll('.generic-order-row')];
+ if(!rows.length){
+   const wrapper=document.createElement('div');wrapper.innerHTML=genericOrderRow(v);list.append(wrapper.firstElementChild);return;
+ }
  rows.forEach(row=>{
    const current=row.querySelector('.generic-order-item')?.value||'';
    const custom=row.querySelector('.generic-order-custom')?.value||'';
    const qty=Number(row.querySelector('.generic-order-qty')?.value||1);
-   const rate=Number(row.querySelector('.generic-order-rate')?.value||0);
-   const billing=row.querySelector('.generic-order-billing')?.value||'flat';
+   const library=genericVendorItems(v);
+   const stillExists=library.some(i=>i.name===current);
    const wrapper=document.createElement('div');
-   wrapper.innerHTML=genericOrderRow(v,current==='__custom__'?custom:current,qty,rate,billing);
+   wrapper.innerHTML=genericOrderRow(v,stillExists?current:'',qty,null,stillExists?(row.querySelector('.generic-order-billing')?.value||'flat'):'flat');
    row.replaceWith(wrapper.firstElementChild);
  });
 }
@@ -486,7 +514,19 @@ function editor(v){
     return `<div class="custom-editor cost-scope" data-cost-type="restrooms"><h4>Restrooms by Location</h4>${restroomLocation('Set','set',[[String(qty),'4-room']],services)}<button class="add-row add-restroom-location">＋ Add restroom location</button></div>`;
   }
   if(v.type==='bins') return `<div class="custom-editor cost-scope" data-cost-type="bins"><h4>Bins by Location</h4>${binLocation('Set','set',1,1,1,0,dt(startDate,'08:00'),dt(endDate,'17:00'))}<button class="add-row add-bin-location">＋ Add bin location</button></div>`;
-  if(v.type==='catering') return `<div class="custom-editor cost-scope" data-cost-type="catering"><h4>Setup Type</h4><div class="choice-row"><label><input class="catering-type" type="radio" name="cateringType" value="lunchbox" checked> Lunchbox</label><label><input class="catering-type" type="radio" name="cateringType" value="tent"> Tent setup</label></div><div class="repeat-row catering-row">${select('Size',['Large','Small'],'Large')}${select('Quantity',['1','2','3','4'],'1')}${input('Delivery',dt(sc.shootStart||startDate,'09:00'),'datetime-local')}${input('Pickup',dt(sc.shootEnd||endDate,'16:00'),'datetime-local')}${orderLocationField('catering','catering')}</div><label class="field full"><span>Setup notes</span><textarea></textarea></label></div>`;
+  if(v.type==='catering'){
+    const lines=items.map(i=>`<div class="budget-import-line"><span>${esc(i.name||'Budget item')}</span><strong>${money(calculateBudgetItem(i))}</strong></div>`).join('');
+    return `<div class="custom-editor cost-scope generic-order-editor catering-order-editor" data-cost-type="catering">
+      <section class="generic-budget-reference"><h4>Budgeted Scope <small>LOCKED FROM BUDGET</small></h4><div class="budget-import-list">${lines||'<span>No budgeted catering setup items.</span>'}</div></section>
+      <section class="generic-working-order">
+        <div class="generic-order-head"><div><h4>Working Order</h4><p>Items below come from the selected vendor’s library.</p></div><button type="button" class="add-row add-generic-order">＋ Add Item</button></div>
+        <div class="generic-order-columns"><span>Item</span><span>Custom</span><span>Qty</span><span>Rate</span><span>Billing</span><span>Total</span><span></span></div>
+        <div class="generic-order-list"></div>
+      </section>
+      <div class="repeat-row catering-row">${input('Delivery',dt(sc.shootStart||startDate,'09:00'),'datetime-local')}${input('Pickup',dt(sc.shootEnd||endDate,'16:00'),'datetime-local')}${orderLocationField('catering','catering')}</div>
+      <label class="field full"><span>Setup notes</span><textarea placeholder="Tent placement, weights, sidewalls, tables/chairs, install notes, access..."></textarea></label>
+    </div>`;
+  }
   if(v.type==='schedule') return `<div class="custom-editor cost-scope" data-cost-type="snake"><h4>Coverage Schedule</h4>${scheduleRow(sc.shootStart||startDate,'06:00','18:00','Set coverage')}<button class="add-row">＋ Add shift</button></div>`;
   if(v.type==='maps') return `<div class="custom-editor cost-scope" data-cost-type="maps"><h4>Map Order</h4><div class="map-lines"><div>${select('Quantity',['1','2','3','4','5'],'1')}${select('Type',['Crew','BG','Prep','VIP','Move','Edge Of Zone','Custom'],'Crew')}${input('Custom / notes','')}</div></div><button class="add-row">＋ Add map</button></div>`;
   if(v.type==='equipment'){
@@ -903,7 +943,11 @@ function recalculateCard(card){if(!card)return;const panel=card.querySelector('[
  else if(id==='restrooms'){card.querySelectorAll('.restroom-unit').forEach(u=>{const q=+u.querySelector('select').value,t=u.querySelectorAll('select')[1].value;total+=q*({'4-room':1000,'2-room':700,'Single':250,'ADA':325,'Luxury trailer':2500,'Custom':0}[t]||0)});card.querySelectorAll('.service-row').forEach(r=>{const checked=[...r.querySelectorAll('.service-units input:not(.service-all)')].filter(x=>x.checked).length;total+=checked*175})}
  else if(id==='bins'){card.querySelectorAll('[data-bin-type]').forEach(s=>{const rates={'Black':175,'Blue':175,'Green':175,'Roll-off':650};total+=+s.value*rates[s.dataset.binType]});total+=card.querySelectorAll('.swap-row').length*175}
  else if(id==='equipment'){card.querySelectorAll('.eq-row').forEach(r=>{const q=+r.querySelector('.eq-qty').value||0,rate=+r.querySelector('.eq-rate').value||0,sub=q*rate;total+=sub;const out=r.querySelector('.eq-total');if(out)out.textContent=money(sub)})}
- else if(id==='catering'){const size=card.querySelector('.catering-row select')?.value||'Large',q=+(card.querySelectorAll('.catering-row select')[1]?.value||1);total=q*(size==='Large'?2554:2084)}
+ else if(id==='catering'){
+   const rows=card.querySelectorAll('.generic-order-row');
+   if(rows.length)rows.forEach(r=>{const q=+r.querySelector('.generic-order-qty')?.value||0,rate=+r.querySelector('.generic-order-rate')?.value||0,sub=q*rate;total+=sub;const out=r.querySelector('.generic-order-total');if(out)out.textContent=money(sub)});
+   else total=0;
+ }
  else if(id==='snake'){card.querySelectorAll('.repeat-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins.length>=3)total+=hoursBetween(`${ins[0].value}T${ins[1].value}`,`${ins[0].value}T${ins[2].value}`)*50.41})}
  else if(id==='maps'){card.querySelectorAll('.map-lines>div').forEach(r=>total+=(+r.querySelector('select').value||0)*90)}
  else if(id==='cleaning'){card.querySelectorAll('.repeat-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins.length>=3)total+=hoursBetween(`${ins[0].value}T${ins[1].value}`,`${ins[0].value}T${ins[2].value}`)*75})}
