@@ -707,7 +707,46 @@ function bind(){
  const cv=document.querySelector('#closeVendorLibrary');if(cv){cv.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeVendorLibrary()})}
  const vendorModal=document.querySelector('#vendorLibraryModal');if(vendorModal&&vendorLibraryOpen){document.body.style.overflow='hidden';vendorModal.addEventListener('click',e=>{if(e.target===vendorModal)closeVendorLibrary()})}else{document.body.style.overflow=''}
  const escapeVendorLibrary=e=>{if(e.key==='Escape'&&vendorLibraryOpen){document.removeEventListener('keydown',escapeVendorLibrary);closeVendorLibrary()}};document.addEventListener('keydown',escapeVendorLibrary,{once:false});
- document.querySelectorAll('.library-vendor-button').forEach(btn=>btn.onclick=e=>{e.preventDefault();vendorLibrarySelected=btn.dataset.vendorName;render()});
+ document.querySelectorAll('.library-vendor-button').forEach(btn=>btn.onclick=e=>{
+   e.preventDefault();
+   const name=btn.dataset.vendorName||'';
+   const modal=document.querySelector('#vendorLibraryModal');
+   const planner=document.querySelector('.vendor-planner-backdrop');
+   const plannerShell=planner?.querySelector('.vendor-planner-shell');
+   const fromPlanner=!!(modal?.classList.contains('above-planner')&&plannerShell);
+   if(fromPlanner){
+     const vendorId=plannerShell.dataset.vendorId||'';
+     const vendor=vendors.find(v=>v.id===vendorId);
+     const select=plannerShell.querySelector('.vendor-choice select');
+     if(select){
+       let option=[...select.options].find(o=>o.value===name);
+       if(!option){option=document.createElement('option');option.value=name;option.textContent=name;select.appendChild(option)}
+       select.value=name;
+       select.dispatchEvent(new Event('change',{bubbles:true}));
+     }
+     if(vendor){
+       vendor.vendor=name;
+       const record=cloudPayload||bibleStore.bibles?.[activeBibleId];
+       if(record){
+         record.vendorOverrides={...(record.vendorOverrides||{}),[vendor.id]:name};
+         if(activeBibleId)bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),vendorOverrides:{...(bibleStore.bibles[activeBibleId]?.vendorOverrides||{}),[vendor.id]:name}};
+       }
+       const headerVendor=plannerShell.querySelector('.planner-vendor-name');if(headerVendor)headerVendor.textContent=name;
+       const contactVendor=plannerShell.querySelector('.contact-line b');if(contactVendor)contactVendor.textContent=name;
+       const preview=plannerShell.querySelector('.live-order-preview');
+       const detail=plannerShell.querySelector('.vendor-detail');
+       if(preview&&detail)preview.innerHTML=vendorPlannerPreview(detail,vendor);
+       bibleDirty=true;cloudState='Unsaved vendor selection';updateCloudStatus();
+       localStorage.setItem(bibleStoreKey,JSON.stringify(bibleStore));
+       if(configured&&showId)saveBible(true).catch(console.error);
+     }
+     vendorLibrarySelected=name;
+     closeVendorLibrary();
+     return;
+   }
+   vendorLibrarySelected=name;
+   render();
+ });
  const updateLibraryItem=row=>{const items=vendorItemsFor(row.dataset.vendorName),item=items.find(x=>x.id===row.dataset.itemId);if(!item)return;item.name=row.querySelector('.library-item-name')?.value.trim()||'Untitled item';item.rate=Number(row.querySelector('.library-item-rate')?.value)||0;item.billing=row.querySelector('.library-item-billing')?.value||'flat';item.billingType=item.billing==='weekly'?'weekly':'flat';if(item.billingType==='weekly')item.weeklyRate=item.rate;else item.flatRate=item.rate;row.dataset.libraryItem=item.name.toLowerCase();markVendorLibraryDirty()};
  document.querySelectorAll('.library-item-row').forEach(row=>row.querySelectorAll('input,select').forEach(el=>{el.oninput=()=>updateLibraryItem(row);el.onchange=()=>updateLibraryItem(row)}));
  document.querySelectorAll('.add-library-item').forEach(btn=>btn.onclick=e=>{e.preventDefault();const items=vendorItemsFor(btn.dataset.vendorName);items.unshift({id:crypto.randomUUID(),name:'New item',vendor:btn.dataset.vendorName,rate:0,flatRate:0,weeklyRate:0,serviceRate:0,deliveryFee:0,pickupFee:0,billing:'flat',billingType:'flat'});markVendorLibraryDirty();render();setTimeout(()=>document.querySelector('.library-item-name')?.select(),0)});
