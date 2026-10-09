@@ -174,7 +174,7 @@ const vendorKeywords={
  police:['police','lapd','chp','traffic control','lane closure'],
  parking:['parking','basecamp'],
  permits:['permit','notification','posting','closure fee'],
- power:['generator','heating','cooling','hvac','electrician','lights','power'],
+ power:['generator','heating','cooling','hvac','electrician','lighting','lights','air conditioning','ac delivery','distro','diesel fuel'],
  support:['site rep','layout','holding','customer displacement','lost revenue','business impact','public control','park monitor','staging']
 };
 function budgetItemsForVendor(v,page=currentBudgetPage()){
@@ -420,6 +420,57 @@ function vendorLibrary(){
  return `<div class="modal-backdrop ${vendorLibraryOpen?'':'hidden'}" id="vendorLibraryModal"><div class="modal vendor-library-modal"><div class="modal-head"><div><small>${esc([showProfile.name,showProfile.season].filter(Boolean).join(' · '))}</small><h2>Vendor Library</h2><p>Choose a vendor, then manage only that vendor's order items.</p></div><button id="closeVendorLibrary" type="button" aria-label="Close vendor library">×</button></div><div class="vendor-library-workspace"><aside class="vendor-library-vendors"><button type="button" class="primary add-library-vendor">＋ Add Vendor</button><label class="library-vendor-search">⌕<input id="vendorSearch" placeholder="Find vendor"></label><div>${vendorsWithItems.map(v=>`<button type="button" class="library-vendor-button ${v.name===selected?.name?'active':''}" data-vendor-name="${esc(v.name)}" data-vendor-search="${esc(`${v.name} ${v.category}`.toLowerCase())}"><span><small>${esc(v.category)}</small><b>${esc(v.name)}</b></span><em>${v.itemCount}</em></button>`).join('')}</div></aside><section class="vendor-library-editor"><header><div><small>${esc(selected?.category||'VENDOR')}</small><h3>${esc(selected?.name||'Select a vendor')}</h3><p>${esc(selected?.contact||'')}${selected?.phone?' · '+esc(selected.phone):''}</p></div><button class="primary add-library-item" type="button" data-vendor-name="${esc(selected?.name||'')}">＋ Add Item</button></header><label class="library-item-search">⌕<input id="vendorLibrarySearch" placeholder="Search ${esc(selected?.name||'vendor')} items"></label><div class="library-items-head"><span>Item</span><span>Rate</span><span>Billing</span><span></span></div><div class="library-items compact">${items.length?items.map(item=>`<div class="library-item-row" data-library-item="${esc(item.name.toLowerCase())}" data-vendor-name="${esc(selected.name)}" data-item-id="${esc(item.id)}"><input class="library-item-name" value="${esc(item.name)}" aria-label="Item name"><input class="library-item-rate" aria-label="Rate" type="number" min="0" step="0.01" value="${Number(item.rate)||0}"><select class="library-item-billing" aria-label="Billing type"><option value="unit" ${item.billing==='unit'?'selected':''}>Per unit</option><option value="weekly" ${item.billing==='weekly'?'selected':''}>Weekly</option><option value="flat" ${item.billing==='flat'?'selected':''}>Flat</option></select><button class="delete-library-item" type="button" aria-label="Delete ${esc(item.name)}">×</button></div>`).join(''):'<div class="empty-library-items"><b>No items yet</b><span>Click Add Item to create the first one.</span></div>'}</div><footer><span>${items.length} item${items.length===1?'':'s'}</span><span>Changes save automatically</span></footer></section></div></div></div>`;
 }
 
+function genericVendorItems(v){
+ const selected=String(v?.vendor||'').trim();
+ const items=selected?vendorItemsFor(selected):[];
+ return items.length?items:[{id:'custom',name:'Custom item',rate:0,billing:'flat'}];
+}
+function genericOrderRow(v,itemName='',qty=1,rate=null,billing='flat'){
+ const library=genericVendorItems(v),chosen=library.find(i=>i.name===itemName)||library[0]||{name:'Custom item',rate:0,billing:'flat'};
+ const unitRate=rate==null?Number(chosen.rate||chosen.flatRate||chosen.weeklyRate||0):Number(rate||0);
+ const bill=billing||chosen.billing||chosen.billingType||'flat';
+ return `<div class="generic-order-row">
+   <select class="generic-order-item" aria-label="Order item">
+     ${library.map(i=>`<option value="${esc(i.name)}" data-rate="${Number(i.rate||i.flatRate||i.weeklyRate||0)}" data-billing="${esc(i.billing||i.billingType||'flat')}" ${i.name===chosen.name?'selected':''}>${esc(i.name)}</option>`).join('')}
+     <option value="__custom__" ${itemName&&!library.some(i=>i.name===itemName)?'selected':''}>Custom item…</option>
+   </select>
+   <input class="generic-order-custom" placeholder="Custom item description" value="${itemName&&!library.some(i=>i.name===itemName)?esc(itemName):''}" ${itemName&&!library.some(i=>i.name===itemName)?'':'hidden'}>
+   <input class="generic-order-qty" type="number" min="0" step="1" value="${Number(qty||1)}" aria-label="Quantity">
+   <input class="generic-order-rate" type="number" min="0" step="0.01" value="${unitRate}" aria-label="Unit rate">
+   <select class="generic-order-billing" aria-label="Billing">
+     <option value="unit" ${bill==='unit'?'selected':''}>Per unit</option>
+     <option value="weekly" ${bill==='weekly'?'selected':''}>Weekly</option>
+     <option value="flat" ${bill==='flat'?'selected':''}>Flat</option>
+   </select>
+   <strong class="generic-order-total">${money(Number(qty||1)*unitRate)}</strong>
+   <button type="button" class="tiny remove-generic-order" aria-label="Remove item">×</button>
+ </div>`;
+}
+function refreshGenericOrderVendor(detail,v){
+ const list=detail?.querySelector('.generic-order-list');if(!list)return;
+ const rows=[...list.querySelectorAll('.generic-order-row')];
+ rows.forEach(row=>{
+   const current=row.querySelector('.generic-order-item')?.value||'';
+   const custom=row.querySelector('.generic-order-custom')?.value||'';
+   const qty=Number(row.querySelector('.generic-order-qty')?.value||1);
+   const rate=Number(row.querySelector('.generic-order-rate')?.value||0);
+   const billing=row.querySelector('.generic-order-billing')?.value||'flat';
+   const wrapper=document.createElement('div');
+   wrapper.innerHTML=genericOrderRow(v,current==='__custom__'?custom:current,qty,rate,billing);
+   row.replaceWith(wrapper.firstElementChild);
+ });
+}
+function syncGenericOrderRow(row){
+ const item=row?.querySelector('.generic-order-item'),custom=row?.querySelector('.generic-order-custom'),rate=row?.querySelector('.generic-order-rate'),billing=row?.querySelector('.generic-order-billing');
+ if(!item)return;
+ const selected=item.selectedOptions?.[0];
+ const isCustom=item.value==='__custom__';
+ if(custom){custom.hidden=!isCustom;if(isCustom)custom.focus()}
+ if(!isCustom&&selected){
+   if(rate)rate.value=Number(selected.dataset.rate||0);
+   if(billing)billing.value=selected.dataset.billing||'flat';
+ }
+}
 function editor(v){
   const sc=scheduleForLocation(),items=budgetItemsForVendor(v),startDate=sc.prepStart||sc.shootStart||'',endDate=sc.strikeEnd||sc.shootEnd||startDate;
   const dt=(date,time)=>date?`${date}T${time}`:'';
@@ -445,7 +496,17 @@ function editor(v){
   if(v.type==='cleaning') return `<div class="custom-editor cost-scope" data-cost-type="cleaning"><h4>Cleaning / Restoration Schedule</h4>${scheduleRow(sc.strikeEnd||sc.strikeStart||endDate,'11:00','14:00','Final cleanup / restoration')}<label class="field full"><span>Instructions</span><textarea></textarea></label><button class="add-row">＋ Add cleaning visit</button></div>`;
   if(v.type==='generic'){
     const lines=items.map(i=>`<div class="budget-import-line"><span>${esc(i.name||'Budget item')}</span><strong>${money(calculateBudgetItem(i))}</strong></div>`).join('');
-    return `<div class="custom-editor cost-scope generic-order-editor" data-cost-type="${esc(v.id)}"><h4>Budgeted scope</h4><div class="budget-import-list">${lines||'<span>No budget lines linked.</span>'}</div><div class="repeat-row">${input('Start',dt(startDate,'07:00'),'datetime-local')}${input('End',dt(endDate,'17:00'),'datetime-local')}</div><label class="field full"><span>Order / coordination notes</span><textarea placeholder="Vendor, contact, instructions, confirmation details..."></textarea></label></div>`;
+    const seeded=genericVendorItems(v).filter(i=>Number(i.rate||i.flatRate||i.weeklyRate||0)>0).slice(0,0);
+    return `<div class="custom-editor cost-scope generic-order-editor" data-cost-type="${esc(v.id)}">
+      <section class="generic-budget-reference"><h4>Budgeted Scope <small>LOCKED FROM BUDGET</small></h4><div class="budget-import-list">${lines||'<span>No budgeted items in this section.</span>'}</div></section>
+      <section class="generic-working-order">
+        <div class="generic-order-head"><div><h4>Working Order</h4><p>Edit this independently from the locked Budget allowance.</p></div><button type="button" class="add-row add-generic-order">＋ Add Item</button></div>
+        <div class="generic-order-columns"><span>Item</span><span>Custom</span><span>Qty</span><span>Rate</span><span>Billing</span><span>Total</span><span></span></div>
+        <div class="generic-order-list">${seeded.map(i=>genericOrderRow(v,i.name,1,Number(i.rate||0),i.billing||'flat')).join('')}</div>
+      </section>
+      <div class="repeat-row">${input('Start',dt(startDate,'07:00'),'datetime-local')}${input('End',dt(endDate,'17:00'),'datetime-local')}</div>
+      <label class="field full"><span>Order / coordination notes</span><textarea placeholder="Vendor contact, delivery instructions, confirmation details, special requirements..."></textarea></label>
+    </div>`;
   }
   return '';
 }
@@ -642,7 +703,27 @@ function syncPlannerDatesFromCalendar(detail,v){
  window.dispatchEvent(new CustomEvent('ts-location-schedule-ready',{detail:sc}));
 }
 function openVendorPlanner(card){if(!card)return;const v=vendors.find(x=>x.id===card.dataset.cardId);if(!v)return;if(v.id==='security'){openSecurityPlanner();return}const home=card.querySelector('.planner-home'),detail=home?.querySelector('.vendor-detail');if(!home||!detail)return;syncPlannerDatesFromCalendar(detail,v);const vendorSelect=detail.querySelector('.vendor-choice select');const plannerVendor=isOperationPlanner(v)?'':(vendorSelect?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v))v.vendor=plannerVendor;const contactLine=detail.querySelector('.contact-line b');if(contactLine)contactLine.textContent=plannerVendor;const locations=vendorPlannerLocations();const wrap=document.createElement('div');wrap.className='vendor-planner-backdrop';wrap.innerHTML=`<section class="vendor-planner-shell" data-vendor-id="${esc(v.id)}" role="dialog" aria-modal="true" aria-labelledby="vendorPlannerTitle"><header class="vendor-planner-top"><div><small>LOCATION BIBLE · ${esc(v.category.toUpperCase())}</small><h2 id="vendorPlannerTitle">${esc(v.title)} Planner</h2><p>${esc(locValue('location_name','Location'))}${isOperationPlanner(v)?' · Internal Operations':` · <span class="planner-vendor-name">${esc(plannerVendor)}</span>`}</p></div><div><button class="ghost planner-generate">Review & Email Order</button><button class="primary planner-save">Save to Bible</button><button class="icon-close planner-close" aria-label="Close">×</button></div></header><div class="vendor-planner-layout"><main class="vendor-planner-work"></main><aside class="vendor-planner-side"><section class="live-order-preview"></section><section class="planner-location-links"><small>ORDER LOCATIONS</small><div class="vendor-planner-locations">${locations.map(x=>`<a target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.item.address||x.item.name||'')}"><b>${esc(x.label)}</b><span>${esc(x.item.name||'')}</span><small>${esc(x.item.address||'Address not entered')}</small></a>`).join('')}</div></section></aside></div></section>`;document.body.append(wrap);const work=wrap.querySelector('.vendor-planner-work');work.append(detail);preparePlannerLocations(detail);document.body.style.overflow='hidden';
- const refresh=()=>{const selectedVendor=isOperationPlanner(v)?'':(detail.querySelector('.vendor-choice select')?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v)){v.vendor=selectedVendor;const record=cloudPayload||bibleStore.bibles?.[activeBibleId];if(record){record.vendorOverrides={...(record.vendorOverrides||{}),[v.id]:selectedVendor};if(activeBibleId)bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),vendorOverrides:{...(bibleStore.bibles[activeBibleId]?.vendorOverrides||{}),[v.id]:selectedVendor}}}}const headerVendor=wrap.querySelector('.planner-vendor-name');if(headerVendor)headerVendor.textContent=selectedVendor;const contactVendor=detail.querySelector('.contact-line b');if(contactVendor)contactVendor.textContent=selectedVendor;const preview=wrap.querySelector('.live-order-preview');if(preview)preview.innerHTML=vendorPlannerPreview(detail,v)};refresh();detail.addEventListener('input',refresh);detail.addEventListener('change',e=>{refresh();if(e.target.closest('.vendor-choice'))markBibleDirty()});detail.addEventListener('click',e=>{if(e.target.closest('.add-row,.tiny,.delete-order-location,.remove-restroom-unit'))setTimeout(refresh,0)});
+ const refresh=()=>{const previousVendor=v.vendor;const selectedVendor=isOperationPlanner(v)?'':(detail.querySelector('.vendor-choice select')?.value||v.vendor||'Vendor not selected');if(!isOperationPlanner(v)){v.vendor=selectedVendor;if(previousVendor!==selectedVendor)refreshGenericOrderVendor(detail,v);const record=cloudPayload||bibleStore.bibles?.[activeBibleId];if(record){record.vendorOverrides={...(record.vendorOverrides||{}),[v.id]:selectedVendor};if(activeBibleId)bibleStore.bibles[activeBibleId]={...(bibleStore.bibles[activeBibleId]||{}),vendorOverrides:{...(bibleStore.bibles[activeBibleId]?.vendorOverrides||{}),[v.id]:selectedVendor}}}}const headerVendor=wrap.querySelector('.planner-vendor-name');if(headerVendor)headerVendor.textContent=selectedVendor;const contactVendor=detail.querySelector('.contact-line b');if(contactVendor)contactVendor.textContent=selectedVendor;const preview=wrap.querySelector('.live-order-preview');if(preview)preview.innerHTML=vendorPlannerPreview(detail,v)};refresh();
+ detail.addEventListener('input',e=>{if(e.target.closest('.generic-order-row'))recalculateCard(wrap);refresh();markBibleDirty()});
+ detail.addEventListener('change',e=>{
+   const row=e.target.closest('.generic-order-row');
+   if(row&&e.target.classList.contains('generic-order-item'))syncGenericOrderRow(row);
+   if(row)recalculateCard(wrap);
+   refresh();
+   if(e.target.closest('.vendor-choice')||row)markBibleDirty();
+ });
+ detail.addEventListener('click',e=>{
+   const add=e.target.closest('.add-generic-order');
+   if(add){
+     e.preventDefault();
+     const list=detail.querySelector('.generic-order-list');
+     if(list){const holder=document.createElement('div');holder.innerHTML=genericOrderRow(v);list.append(holder.firstElementChild);recalculateCard(wrap);markBibleDirty()}
+     return;
+   }
+   const remove=e.target.closest('.remove-generic-order');
+   if(remove){e.preventDefault();remove.closest('.generic-order-row')?.remove();recalculateCard(wrap);refresh();markBibleDirty();return}
+   if(e.target.closest('.add-row,.tiny,.delete-order-location,.remove-restroom-unit'))setTimeout(()=>{refresh();recalculateCard(wrap)},0)
+ });
  const close=()=>{home.append(detail);wrap.remove();document.body.style.overflow='';recalculateCard(card)};wrap.querySelector('.planner-close').onclick=close;wrap.onclick=e=>{if(e.target===wrap)close()};wrap.querySelector('.planner-generate').onclick=()=>{home.append(detail);openEmailPreview(card);work.append(detail)};wrap.querySelector('.planner-save').onclick=async()=>{await saveBible();close();showToast(`${v.title} planner saved`)};const key=e=>{if(e.key==='Escape'){document.removeEventListener('keydown',key);close()}};document.addEventListener('keydown',key);setTimeout(()=>detail.querySelector('input,select,textarea')?.focus(),0)
 }
 function bind(){
@@ -826,6 +907,7 @@ function recalculateCard(card){if(!card)return;const panel=card.querySelector('[
  else if(id==='snake'){card.querySelectorAll('.repeat-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins.length>=3)total+=hoursBetween(`${ins[0].value}T${ins[1].value}`,`${ins[0].value}T${ins[2].value}`)*50.41})}
  else if(id==='maps'){card.querySelectorAll('.map-lines>div').forEach(r=>total+=(+r.querySelector('select').value||0)*90)}
  else if(id==='cleaning'){card.querySelectorAll('.repeat-row').forEach(r=>{const ins=r.querySelectorAll('input');if(ins.length>=3)total+=hoursBetween(`${ins[0].value}T${ins[1].value}`,`${ins[0].value}T${ins[2].value}`)*75})}
+ else if(['power','police','parking','permits','support'].includes(id)){card.querySelectorAll('.generic-order-row').forEach(r=>{const q=+r.querySelector('.generic-order-qty')?.value||0,rate=+r.querySelector('.generic-order-rate')?.value||0,sub=q*rate;total+=sub;const out=r.querySelector('.generic-order-total');if(out)out.textContent=money(sub)})}
  const locked=+panel.dataset.lockedBudget||0,diff=total-locked;panel.querySelector('.working-total').textContent=money(total);panel.querySelector('.variance-total').textContent=money(Math.abs(diff));panel.querySelector('.variance-total').classList.toggle('over',diff>0);panel.querySelector('.variance-note').textContent=diff>0?'Over budget':'Under budget';}
 function fieldPersistenceKey(el){const card=el.closest?.('.vendor-card'),planner=el.closest?.('.vendor-planner-shell'),cardId=card?.dataset?.cardId||planner?.dataset?.vendorId||'global',group=el.closest?.('.location-order-group'),groupId=group?.dataset?.location||group?.querySelector?.('.location-pill.active')?.textContent?.trim()||'',row=el.closest?.('.security-row,.service-row,.swap-row,.repeat-row,.eq-row,.restroom-unit'),rowClass=row?[...row.classList].find(c=>/row|unit/.test(c))||'row':'',rowIndex=row&&row.parentElement?[...row.parentElement.children].filter(x=>x.classList?.contains(rowClass)).indexOf(row):-1,label=el.closest?.('label')?.querySelector?.('span')?.textContent?.trim()||el.getAttribute?.('aria-label')||el.getAttribute?.('placeholder')||'',cls=[...(el.classList||[])].filter(c=>!['active','over'].includes(c)).sort().join('.'),type=el.getAttribute?.('type')||el.tagName?.toLowerCase()||'',same=[...((el.parentElement?.querySelectorAll?.('input,select,textarea'))||[])].filter(x=>([...(x.classList||[])].sort().join('.')===cls)&&(x.getAttribute?.('type')||x.tagName?.toLowerCase())===type),localIndex=Math.max(0,same.indexOf(el));return[cardId,groupId,rowClass,rowIndex,label,cls,type,localIndex].map(x=>String(x??'').replace(/[|]/g,'/')).join('|')}
 function captureFormValues(){return[...document.querySelectorAll('input,select,textarea')].filter(el=>!el.closest('#vendorLibraryModal')).map(el=>({key:fieldPersistenceKey(el),value:el.value,checked:el.checked,type:el.type}))}
