@@ -10,6 +10,17 @@ const vendors = [
   {id:'maps',category:'Parking & Movement',title:'Maps',vendor:'Map This Out',status:'ordered',summary:'Prep + crew maps · edge-of-zone lot',contact:'Rich Clark · 818-391-3176 · rich@mapthisout.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO 304-133',type:'maps'}
 ];
 
+vendors.push(
+  {id:'police',category:'Traffic & Public Safety',title:'Police / Traffic Control',vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO',type:'generic'},
+  {id:'parking',category:'Parking & Movement',title:'Parking / Basecamp',vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO',type:'generic'},
+  {id:'permits',category:'Permits & Community',title:'Permits / Notification',vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO',type:'generic'},
+  {id:'power',category:'Site Operations',title:'Power / HVAC / Lighting',vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO',type:'generic'},
+  {id:'support',category:'Site Operations',title:'Site Support / Holding',vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO',type:'generic'}
+);
+const vendorTemplateDefaults=Object.fromEntries(vendors.map(v=>[v.id,{vendor:'Vendor not selected',status:'working',summary:'Budget allowance ready for planning',contact:'',stamp:'Not ordered',po:'No PO'}]));
+function resetVendorTemplates(){vendors.forEach(v=>Object.assign(v,vendorTemplateDefaults[v.id]||{}))}
+resetVendorTemplates();
+
 const vendorCatalog = [
  {category:'Abatement / Environmental Cleaning',name:'Westcor Environmental',status:'Pending',contact:'Matt Westrup / Christian Sanford',phone:'562-677-3990 / 562-371-5445',email:'mwestrup@westcorenv.com',rates:'Estimate required'},
  {category:'Air Conditioning',name:'Air on Location, Inc.',status:'Account Documents Complete',contact:'Edgar Robles',phone:'818-307-4558 / 818-712-6933',email:'aironlocation@gmail.com',rates:'Recent invoice 8/3/26: 10x10 cooling tent $100; 1.5 Ton AC 110V $200; AC delivery/pick-up $400; 500 Amp ultra-silent generator $450; generator delivery/pick-up $300; distro pack $400; diesel $10/gal. Existing guide: 25 Ton $1,700/wk or $1,200/day; 20 Ton $1,500/wk or $1,000/day; 10 Ton $1,100/wk or $800/day; 5 Ton $600/wk or $500/day; 1.5 Ton $300/wk or $200/day.'},
@@ -143,8 +154,22 @@ function calculateBudgetItem(i){
  if(i.calcType==='vendor'){const base=i.vendorBillingType==='flat'?+(i.units||0)*+(i.vendorFlatRate||0):+(i.units||0)*+(i.weeks||0)*+(i.weeklyRate||0);return base+(+(i.units||0)*+(i.servicesPerUnit||0)*+(i.serviceRate||0))+(+(i.flatAmount||0))}
  return 0;
 }
-const vendorSectionMap={security:'security',restrooms:'vendors',cleaning:'restoration',bins:'vendors',equipment:'vendors',catering:'vendors',snake:'vendors',maps:'parking'};
-const vendorKeywords={security:['security','guard','gaffer'],restrooms:['restroom','toilet'],cleaning:['clean'],bins:['bin','dumpster','trash','waste'],equipment:['equipment','hdr','glowbug'],catering:['catering','lunchbox'],snake:['snake','wrangler'],maps:['map']};
+const vendorSectionMap={security:'security',restrooms:'vendors',cleaning:'restoration',bins:'vendors',equipment:'equipment-rentals',catering:'vendors',snake:'vendors',maps:'parking',police:'police',parking:'parking',permits:'permits',power:'heating-ac',support:'site-support-rentals'};
+const vendorKeywords={
+ security:['security','guard','gaffer','supervisor'],
+ restrooms:['restroom','toilet'],
+ cleaning:['clean','restoration','power wash','reset'],
+ bins:['bin','dumpster','trash','waste'],
+ equipment:['equipment','hdr','glowbug','sandbag','handwashing','tent'],
+ catering:['catering','lunchbox'],
+ snake:['snake','wrangler'],
+ maps:['map'],
+ police:['police','lapd','chp','traffic control','lane closure'],
+ parking:['parking','basecamp'],
+ permits:['permit','notification','posting','closure fee'],
+ power:['generator','heating','cooling','hvac','electrician','lights','power'],
+ support:['site rep','layout','holding','customer displacement','lost revenue','business impact','public control','park monitor','staging']
+};
 function currentBudgetPage(){const list=Array.isArray(sharedBudget?.budgets)?sharedBudget.budgets:(Array.isArray(sharedBudget)?sharedBudget:[]);const targetId=sharedLocation?.id||locationId||'';const ep=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||'');const set=String(sharedLocation?.set_name||cloudPayload?.setName||'').trim().toLowerCase();const loc=String(sharedLocation?.location_name||cloudPayload?.locationName||'').trim().toLowerCase();return list.find(b=>targetId&&b.sharedLocationId===targetId)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&set&&String(b.setName||'').trim().toLowerCase()===set)||list.find(b=>normalizeEpisode(b.episode||'')===ep&&loc&&String(b.location||'').trim().toLowerCase()===loc)||null}
 function calendarEventForLocation(){const events=Array.isArray(sharedCalendar?.events)?sharedCalendar.events.filter(e=>e&&e.eventType!=='note'):[],targetId=sharedLocation?.id||locationId||'',episode=normalizeEpisode(sharedLocation?.episode_name||sharedLocation?.episode_id||cloudPayload?.episodeName||''),norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' '),set=norm(sharedLocation?.set_name||cloudPayload?.setName||''),locationName=norm(sharedLocation?.location_name||cloudPayload?.locationName||'');return events.find(e=>targetId&&(e.sharedLocationId===targetId||e.locationId===targetId))||events.find(e=>normalizeEpisode(e.episode||'')===episode&&set&&norm(e.set)===set)||events.find(e=>normalizeEpisode(e.episode||'')===episode&&locationName&&norm(e.location)===locationName)||null}
 function scheduleForLocation(){const event=calendarEventForLocation();if(event)return{prepStart:event.prepStart||'',prepEnd:event.prepEnd||event.prepStart||'',shootStart:event.shootStart||'',shootEnd:event.shootEnd||event.shootStart||'',holdStart:event.holdStart||'',holdEnd:event.holdEnd||event.holdStart||'',strikeStart:event.strikeStart||'',strikeEnd:event.strikeEnd||event.strikeStart||''};const m=sharedLocation?.metadata?.schedule||{},b=currentBudgetPage()||{};return{prepStart:m.prep_start||b.prepStart||'',prepEnd:m.prep_end||b.prepEnd||m.prep_start||'',shootStart:m.shoot_start||b.shootStart||'',shootEnd:m.shoot_end||b.shootEnd||m.shoot_start||'',holdStart:m.hold_start||b.holdStart||'',holdEnd:m.hold_end||b.holdEnd||m.hold_start||'',strikeStart:m.strike_start||b.strikeStart||'',strikeEnd:m.strike_end||b.strikeEnd||m.strike_start||''}}
