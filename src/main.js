@@ -1,4 +1,4 @@
-import{configured,getShowId,getLocationId,getSession,loadBible as loadBibleDocument,saveBibleDocument,loadBudget,saveBudgetVendorLibrary,loadCalendarDocument,loadProductionSetup,loadLocations,updateLocation,subscribeBible}from'./supabase.js';
+import{configured,getShowId,getLocationId,getSession,loadBible as loadBibleDocument,saveBibleDocument,saveBibleStatus,loadBudget,saveBudgetVendorLibrary,loadCalendarDocument,loadProductionSetup,loadLocations,updateLocation,subscribeBible}from'./supabase.js';
 const vendors = [
   {id:'security',category:'Site Operations',title:'Security',vendor:'Showbiz Inc',status:'ordered',summary:'24-hour, day and night coverage · Jul 30–Aug 4',contact:'Ray Barajas · 562-318-7807 · Rbarajasj@gmail.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO pending',type:'security'},
   {id:'restrooms',category:'Site Operations',title:'Restrooms',vendor:'Elite Mobile Restrooms',status:'ordered',summary:'2 × 4-room units · delivery, service and pickup scheduled',contact:'Shaunn Freire · 818-743-6226 · elitemobilerestrooms@gmail.com',stamp:'Ordered Jul 20 at 2:34 PM',po:'PO 304-118',type:'restrooms'},
@@ -79,9 +79,24 @@ async function setPlannerStatus(v,status){
   cloudPayload=bibleStore.bibles[activeBibleId];
  }
  localStorage.setItem(bibleStoreKey,JSON.stringify(bibleStore));
- const saved=await saveBible(true,true);
- if(!saved){showToast('Status could not be saved',true);return false}
- return true;
+ cloudState='Saving status…';updateCloudStatus();
+ try{
+  const targetLocationId=sharedLocation?.id||locationId||current.locationId||current.location?.id||'';
+  if(configured&&showId&&targetLocationId){
+   const result=await saveBibleStatus(showId,targetLocationId,v.id,status);
+   if(activeBibleId&&bibleStore.bibles?.[activeBibleId])bibleStore.bibles[activeBibleId].__remoteUpdatedAt=result.updated_at;
+   if(cloudPayload)cloudPayload.__remoteUpdatedAt=result.updated_at;
+  }else{
+   await saveBible(true,true);
+  }
+  cloudState='Connected · status saved';updateCloudStatus();
+  return true;
+ }catch(e){
+  console.error('Planner status save failed',e);
+  cloudState=`Status save error: ${e.message||'save failed'}`;updateCloudStatus();
+  showToast('Status could not be saved',true);
+  return false;
+ }
 }
 const equipmentInventory=["Air Compressor", "Air Conditioner 1.5 ton w/ Hose", "Astroturf", "Broom-corn Stick", "Broom-push", "Boom Box - iPod Dock", "Butt Can", "Bull Horn", "C-Stand - G&E", "Cal-OSHA Sign", "Camera Cart", "Clip-on lights", "Cart, Rubbermaid", "Coffee Cambro", "Coffee Maker-100 Cup", "Coffee Maker-55 Cup", "Cone Delineator 36\"", "Cone 18\"", "Cone 28\"", "Cooler 100 Qt", "Cooler 48 Qt (Tech Scout)", "Cooler 68 Qt", "Copier Desktop", "Crash Pad - 4 x 8 x 8", "Cube Taps", "Director Chair-tall", "Director Chair-Medium", "Director Chair-low", "Dolly Magliner Sr", "Dolly Magliner Sr w/ Shelf", "Dolly Furniture", "Dolly Handtruck", "Dolly Refrigerator", "Dust Mop", "Dust Pan", "Extension Cord 100 ft", "Extension Cord 50 ft", "Extension Cord 25 ft", "Extension, 4 Prong", "Equipment Cover, Heat Reflective - 10x10", "Fan (Box)", "Fan (High Velocity)", "Fire Extinguisher - Small", "Fire Extinguisher - Large", "First Aid Kit-50 Person", "Flash Light", "Floor Squeegee", "Fogger - Rosco Vapour", "Folding Chair", "Folding Chair Cart", "Folding Chair, Padded", "Furniture Pad", "Gas Can - Large", "Generator: Honda 2000 Watt", "Generator: Honda 3000 Watt", "Generator: Honda 7000 Watt", "Glo Bugs - LED", "Hazer - Rosco V Hazer", "Heater Blower Small", "Heater Blower Large", "Heater - Dish Electric", "Heater - Dolly w Propane Tank", "Heater - Tent Box Heater", "Iron, Steam/Dry", "Ironing Board", "Ladder 4 ft", "Ladder 6 ft", "Ladder 8 ft", "Ladder 12 ft", "Ladder 16 ft", "Laundry Bins", "Leaf Blower", "Loco Mat 3 x 5", "Microwave", "Mirror: Floor Length", "Mirror: Make-up Rolling", "Mirror: Make-up Table Top", "Misting Fan - 30 Gallon", "Pallet Jack", "Pipe & Drape - Base", "Pipe & Drape - Upright", "Pipe & Drape - Support", "Pipe & Drape - Drape 10 ft", "Pop-Up Tent 8x8 (Black)", "Pop-Up Tent 10x10 (Blue)", "Pop-Up Tent 10x10 (White)", "Pop-Up Tent 10x15 (Blue)", "Pop-Up Tent 10x15 (White)", "Pop-Up Tent 10x20 (Blue)", "Pop-Up Tent 10x20 (White)", "Pop-Up Tent Side 8ft (Black)", "Pop-Up Tent Side 10ft (Blue)", "Pop-Up Tent Side 10ft (Black)", "Pop-Up Tent Side 10ft (White)", "Pop-Up Tent Side 10ft - Heat Reflective", "Pop-Up Tent Top 10ft - Heat Reflective", "Propane Tanks 20 lbs", "Power Strip", "Rack: Tool", "Rack Track", "Rake - Rock", "Ratchet Straps", "Refrigerator", "Shop Vac", "Shovel - Flat", "Shovel - Spade", "Safety Vest", "Sandbags-25 lbs", "Swamp Cooler", "Table-4ft Plastic", "Table-6ft Plastic", "Table-8ft Plastic", "Toaster", "Trash Can - Regular 32 Gal", "Trash Can - Office", "Trash Can - Kitchen", "Trash Can-recycle", "Truck Shelf-6 ft", "Truck Shelf-8 ft", "Umbrella", "Wardrobe Rack", "Wardrobe Rack Bottoms", "Wardrobe Z Racks", "Wardrobe S Racks", "Wardrobe Steamer", "Water Cooler - 5 gal", "Water- 5 gal Disp. (hot & cold)", "Water- 5 gal Bottle", "Water Bags", "Water Barrels", "Water Hose 50 ft", "Worklight (LED) Red", "Worklight w/Stand", "Worklight w/Stand (Double)", "Motorola Radios-CP200 (UHF)", "Headsets", "Hand Mic", "Surveillance Mic", "Noise Canceling Headsets", "Base Stations (40 watt)", "Repeater", "J-Box", '10x10 Pop-Up Tent', "10' Tent Side", 'Trash Can, 33 gal', 'Milwaukee Light', 'GloBug Lighting System with Generator', 'Fire Extinguisher, Small', 'Delivery / Set-Up', 'Strike Pick-Up', '10x10 Cooling Tent', '1.5 Ton Air Conditioning Unit — 110V', '500 Amp Ultra Silent Generator', 'Distro Pack — Base Camp', 'Diesel Fuel — per gallon', 'AC Delivery / Pick-Up', 'Generator Delivery / Pick-Up'];
 const commonEquipment=['10x10 Pop-Up Tent',"10' Tent Side",'Sandbag','Handwashing Station','Trash Can, 33 gal','Milwaukee Light','GloBug Lighting System with Generator','Fire Extinguisher, Small','10x10 Cooling Tent','1.5 Ton Air Conditioning Unit — 110V','500 Amp Ultra Silent Generator','Distro Pack — Base Camp'];
